@@ -1,35 +1,65 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Feather } from "@expo/vector-icons";
+import { Redirect, Tabs } from "expo-router";
+import React, { useState } from "react";
+import { View } from "react-native";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+const TabIcon = ({ focused, name }: any) => (
+  <View
+    style={{
+      alignItems: "center",
+      justifyContent: "center",
+      width: 24,
+      height: 24,
+    }}
+  >
+    <Feather
+      name={name}
+      size={focused ? 24 : 22}
+      color={focused ? "#7FAE9A" : "#6A7C75"}
+    />
+  </View>
+);
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+const _Layout = () => {
+  const [authenticated, setAuthenticated] = useState(false);
+
+  if (!authenticated) {
+    return <Redirect href="/(auth)" />;
+  }
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarShowLabel: true,
+        tabBarStyle: {
+          height: 60,
+          backgroundColor: "#e9e6e2",
+          borderColor: "#1F2D28",
+        },
+      }}
+    >
       <Tabs.Screen
-        name="index"
+        name="between"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Between",
+          headerShown: false,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} name="users" />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="chat"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: "Chat",
+          headerShown: false,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon focused={focused} name="message-circle" />
+          ),
         }}
       />
     </Tabs>
   );
-}
+};
+
+export default _Layout;
