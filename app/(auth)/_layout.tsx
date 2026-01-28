@@ -7,7 +7,6 @@ const _AuthLayout = () => {
   // if (authenticated) {
   //   return <Redirect href="/(tabs)" />;
   // }
-
   return (
     <Stack
       screenOptions={{

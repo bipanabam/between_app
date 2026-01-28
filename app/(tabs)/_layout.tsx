@@ -3,6 +3,7 @@ import { Redirect, Tabs } from "expo-router";
 import React, { useState } from "react";
 import { Text, View } from "react-native";
 
+// Authenticated and paired
 const TabIcon = ({ focused, name, title }: any) => {
   return (
     <View className="flex-1 px-1">
@@ -25,7 +26,7 @@ const _Layout = () => {
   const [authenticated, setAuthenticated] = useState(false);
 
   if (!authenticated) {
-    return <Redirect href="/(auth)/sign-up" />;
+    return <Redirect href="/(pairing)" />;
   }
 
   return (

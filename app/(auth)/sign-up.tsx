@@ -1,5 +1,6 @@
 import StepWrapper from "@/components/StepWrapper";
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import {
   ArrowRight,
   Check,
@@ -32,12 +33,13 @@ type Step =
   | "nickname"
   | "complete";
 
-const SignUp = ({ onComplete }: { onComplete: () => void }) => {
+const SignUp = () => {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [passcode, setPasscode] = useState("");
   const [confirmPasscode, setConfirmPasscode] = useState("");
   const [nickname, setNickname] = useState("");
+  const router = useRouter();
 
   const haptic = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -125,7 +127,9 @@ const SignUp = ({ onComplete }: { onComplete: () => void }) => {
 
   const handleFinish = async () => {
     setStep("complete");
-    setTimeout(onComplete, 2500);
+    setTimeout(() => {
+      router.replace("/(pairing)");
+    }, 2500);
   };
 
   return (
@@ -379,7 +383,7 @@ const SignUp = ({ onComplete }: { onComplete: () => void }) => {
           {/* COMPLETE */}
           {step === "complete" && (
             <StepWrapper stepKey={step}>
-              <View className="items-center mt-10">
+              <View className="items-center mt-14">
                 <View className="h-12 w-12 rounded-full bg-muted items-center justify-center mb-6">
                   <Check size={20} color="#8a8075" />
                 </View>

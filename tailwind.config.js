@@ -19,6 +19,9 @@ module.exports = {
         destructive: "#c27070",
         destructiveForeground: "#fbfaf9",
         border: "#ded9d3",
+
+        partnerOne: "#cfafb5",
+        partnerTwo: "#a3b8c2"
       },
     },
   },
