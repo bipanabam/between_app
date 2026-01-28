@@ -1,302 +1,415 @@
-import { Heart, Lock, Mail, User } from "lucide-react";
-import React, { useState } from "react";
+import StepWrapper from "@/components/StepWrapper";
+import * as Haptics from "expo-haptics";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ArrowRight,
+  Check,
+  Delete,
+  Heart,
+  Lock,
+  Mail,
+  User,
+} from "lucide-react-native";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+// import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const SignupScreen = ({ onComplete }: { onComplete: () => void }) => {
-  const [step, setStep] = useState<number>(0); // 0: Email, 1: Passcode, 2: Nickname
+type Step =
+  | "email"
+  | "emailSent"
+  | "passcode"
+  | "confirmPasscode"
+  | "nickname"
+  | "complete";
+
+const SignUp = ({ onComplete }: { onComplete: () => void }) => {
+  const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [passcode, setPasscode] = useState("");
+  const [confirmPasscode, setConfirmPasscode] = useState("");
   const [nickname, setNickname] = useState("");
 
-  const steps = ["email", "passcode", "nickname"];
+  const haptic = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const PasscodeDot = ({ filled }: { filled: boolean }) => {
+    const scale = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+      Animated.spring(scale, {
+        toValue: filled ? 1.2 : 1,
+        useNativeDriver: true,
+        friction: 6,
+      }).start();
+    }, [filled]);
+
+    return (
+      <Animated.View
+        style={{ transform: [{ scale }] }}
+        className={`w-3.5 h-3.5 mx-2 rounded-full ${
+          filled ? "bg-primary" : "bg-muted"
+        }`}
+      />
+    );
+  };
 
   const handleSendMagicLink = async () => {
-    try {
-      // Appwrite Magic Link Logic Here
-      setStep(1);
-    } catch (err: any) {
-      Alert.alert("Error", err.message);
+    if (!email.includes("@")) {
+      Alert.alert("Invalid email");
+      return;
     }
+
+    // TODO: Appwrite magic link
+    setStep("emailSent");
+
+    // Simulate magic link opened
+    setTimeout(() => {
+      setStep("passcode");
+    }, 1500);
   };
 
   const handlePasscodePress = (num: string) => {
-    if (passcode.length < 4) setPasscode((prev) => prev + num);
+    if (passcode.length >= 4) return;
+
+    const next = passcode + num;
+    setPasscode(next);
+    console.log(passcode);
+
+    if (next.length === 4) {
+      setStep("confirmPasscode");
+    }
   };
 
   const handleBackspace = () => {
-    setPasscode((prev) => prev.slice(0, -1));
+    if (step == "passcode") {
+      setPasscode((p) => p.slice(0, -1));
+    }
+    if (step == "confirmPasscode") {
+      setConfirmPasscode((p) => p.slice(0, -1));
+    }
   };
 
-  const nextStep = () => {
-    if (step === 1 && passcode.length !== 4) return;
-    if (step < 2) setStep(step + 1);
-    else onComplete();
+  // const handlePasscodeComplete = async () => {
+  //   if (passcode.length !== 4) return;
+
+  //   // await AsyncStorage.setItem("between_passcode", passcode);
+  //   setStep("confirmPasscode");
+  // };
+
+  const handleConfirmPasscodePress = (num: string) => {
+    if (confirmPasscode.length >= 4) return;
+
+    const next = confirmPasscode + num;
+    setConfirmPasscode(next);
+
+    if (next.length === 4) {
+      if (next !== passcode) {
+        Alert.alert("Passcode didn't match!");
+        setConfirmPasscode("");
+        return;
+      }
+      setStep("nickname");
+    }
   };
 
-  const RenderDots = () => (
-    <View style={styles.dotContainer}>
-      {steps.map((_, i) => (
-        <View key={i} style={[styles.dot, step === i && styles.activeDot]} />
-      ))}
-    </View>
-  );
+  const handleFinish = async () => {
+    setStep("complete");
+    setTimeout(onComplete, 2500);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1 items-center justify-between py-10"
+        className="flex-1"
       >
-        {/* Header Section */}
-        <View className="items-center mt-5">
-          <View className="h-10 w-10 rounded-full items-center justify-center bg-primary/10 mb-4">
-            <Heart size={24} color="#bc8f97" />
+        {/* Header */}
+        <View className="items-center mt-16 mb-14">
+          <View className="h-14 w-14 rounded-full items-center justify-center mb-4 bg-primary/10">
+            <Heart size={24} color="#bc8f97" fill="#bc8f97" />
           </View>
-          <Text className="text-xl font-medium text-foreground">Between</Text>
-          <Text className="text-sm text-mutedForeground mt-1">
+          <Text className="text-2xl font-semibold text-foreground">
+            Between
+          </Text>
+          <Text className="text-sm font-light text-mutedForeground mt-1">
             Your private space
           </Text>
         </View>
 
-        {/* Step 1: Email */}
-        {step === 0 && (
-          <View className="flex-1 items-center px-10">
-            <View className="w-10 h-10 rounded-full items-center justify-center bg-muted mb-2">
-              <Mail size={20} color="#8a8075" />
-            </View>
-            <Text className="text-lg font-medium text-foreground">
-              Enter your email
-            </Text>
-            <Text className="text-sm text-muted-foreground leading-relaxed">
-              We'll send you a magic link to sign in.{"\n"}No passwords to
-              remember.
-            </Text>
-            <TextInput
-              className="h-14 text-center text-base bg-card border-border/50 rounded-2xl px-5 mb-5 placeholder:text-mutedForeground/50 focus:border-primary/30 focus:ring-primary/20"
-              //   style={styles.input}
-              placeholder="your@email.com"
-              placeholderTextColor="#C7C7CD"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-            <Pressable
-              className="w-full h-14 rounded-2xl justify-center items-center bg-primary/90 disabled:opacity-50"
-              onPress={handleSendMagicLink}
-              disabled={!email}
-            >
-              <Text className="text-white text-lg font-semibold">
-                Continue →
-              </Text>
-            </Pressable>
-            <Text className="mt-5 text-xs text-mutedForeground/70 text-center">
-              Your email stays private. We never share it.
-            </Text>
-          </View>
-        )}
+        <View className="flex-1 px-8">
+          {/* EMAIL */}
+          {step === "email" && (
+            <StepWrapper stepKey={step}>
+              <View className="items-center mt-8">
+                <View className="h-12 w-12 rounded-full bg-muted items-center justify-center mb-6">
+                  <Mail size={20} color="#8a8075" />
+                </View>
 
-        {/* Step 2: Passcode (Custom Keypad) */}
-        {step === 1 && (
-          <View className="items-center px-10">
-            <View className="w-10 h-10 rounded-full items-center justify-center bg-muted mb-2">
-              <Lock size={20} color="#8a8075" />
-            </View>
-            <Text className="text-lg font-medium text-foreground">
-              Set your privacy code
-            </Text>
-            <Text className="text-sm text-mutedForeground leading-relaxed">
-              A 4-digit code to keep your space safe.
-            </Text>
+                <Text className="text-2xl font-medium">Enter your email</Text>
+                <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
+                  We'll send you a magic link to sign in.{"\n"}No passwords to
+                  remember.
+                </Text>
 
-            <View className="flex-row mb-10">
-              {[...Array(4)].map((_, i) => (
-                <View
-                  className={`w-3 h-3 rounded-full mx-2 ${
-                    passcode.length > i ? "bg-primary" : "bg-muted"
-                  }`}
-                  key={i}
+                <TextInput
+                  className="h-16 w-full rounded-2xl px-6 mt-9 text-lg text-center bg-card border border-muted focus:border-primary"
+                  placeholder="your@email.com"
+                  placeholderTextColor="#BDB7B0"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
-              ))}
-            </View>
 
-            <View className="flex-wrap flex-row justify-center w-64">
-              {["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"].map(
-                (val, i) => (
+                <Pressable
+                  onPress={handleSendMagicLink}
+                  className="h-16 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
+                  disabled={!email}
+                >
+                  <Text className="text-white text-lg font-medium mr-2">
+                    Continue
+                  </Text>
+                  <ArrowRight size={15} color="white" />
+                </Pressable>
+                <Text className="text-xs text-mutedForeground/70 mt-8">
+                  Your email stays private. We never share it.
+                </Text>
+              </View>
+            </StepWrapper>
+          )}
+
+          {/* EMAIL SENT */}
+          {step === "emailSent" && (
+            <StepWrapper stepKey={step}>
+              <View className="items-center mt-8">
+                <View className="h-12 w-12 rounded-full bg-muted items-center justify-center mb-6">
+                  <Mail size={20} color="#8a8075" />
+                </View>
+
+                <Text className="text-2xl font-medium">Check your email</Text>
+                <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
+                  Open the magic link to continue.
+                </Text>
+              </View>
+            </StepWrapper>
+          )}
+
+          {/* PASSCODE */}
+          {step === "passcode" && (
+            <View className="items-center">
+              <View className="h-12 w-12 rounded-full bg-muted items-center justify-center mb-6">
+                <Lock size={20} color="#8a8075" />
+              </View>
+
+              <Text className="text-2xl font-medium">
+                Set your privacy code
+              </Text>
+              <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
+                A 4-digit code to keep your space safe.
+              </Text>
+
+              {/* Dots */}
+              <View className="flex-row my-8">
+                {[0, 1, 2, 3].map((i) => (
+                  <PasscodeDot key={i} filled={passcode.length > i} />
+                ))}
+              </View>
+
+              {/* Numpad */}
+              <View className="flex-row flex-wrap justify-center w-full px-4 gap-3">
+                {[
+                  "1",
+                  "2",
+                  "3",
+                  "4",
+                  "5",
+                  "6",
+                  "7",
+                  "8",
+                  "9",
+                  "",
+                  "0",
+                  "delete",
+                ].map((v, i) => (
                   <Pressable
                     key={i}
-                    className="w-20 h-14 justify-center items-center"
-                    onPress={() =>
-                      val === "⌫"
+                    className="w-1/4 h-16 items-center justify-center rounded-2xl bg-muted"
+                    onPress={() => {
+                      haptic();
+                      v === "delete"
                         ? handleBackspace()
-                        : val !== "" && handlePasscodePress(val)
-                    }
+                        : v && handlePasscodePress(v);
+                    }}
                   >
-                    <Text style={styles.keyText}>{val}</Text>
+                    {v === "delete" ? (
+                      <Delete size={24} color="#5E5851" />
+                    ) : (
+                      <Text className="text-2xl text-foreground font-semibold">
+                        {v}
+                      </Text>
+                    )}
                   </Pressable>
-                ),
-              )}
-            </View>
+                ))}
+              </View>
 
-            {passcode.length === 4 && (
-              <Pressable
-                className="w-full h-14 bg-primary rounded-2xl justify-center items-center mt-5"
-                onPress={nextStep}
-              >
-                <Text className="text-white text-lg font-semibold">
-                  Continue →
+              <Pressable className="mt-6">
+                <Text className="text-mutedForeground/70 text-sm">
+                  Forgot your passcode? We can help.
                 </Text>
               </Pressable>
-            )}
-          </View>
-        )}
-
-        {/* Step 3: Nickname */}
-        {step === 2 && (
-          <View className="items-center px-10">
-            <View className="w-10 h-10 rounded-full items-center justify-center bg-muted mb-2">
-              <User size={28} color="#bc8f97" />
             </View>
-            <Text className="text-lg font-medium text-foreground">
-              What should we call you?
-            </Text>
-            <Text className="text-sm text-mutedForeground leading-relaxed">
-              A nickname for your partner to see.{"\n"}You can always change
-              this later.
-            </Text>
-            <TextInput
-              className="h-14 text-center text-base bg-card border-border/50 rounded-2xl px-5 mb-5 placeholder:text-mutedForeground/50 focus:border-primary/30 focus:ring-primary/20"
-              placeholder="Your nickname"
-              value={nickname}
-              onChangeText={setNickname}
-            />
-            <Pressable
-              className="w-full h-14 bg-primary rounded-2xl justify-center items-center mt-5"
-              onPress={nextStep}
-            >
-              <Text className="text-white text-lg font-semibold">
-                Continue →
-              </Text>
-            </Pressable>
-            <Pressable onPress={nextStep} style={{ marginTop: 20 }}>
-              <Text className="text-sm text-mutedForeground">Skip for now</Text>
-            </Pressable>
-          </View>
-        )}
+          )}
 
-        <RenderDots />
+          {/* CONFIRM PASSCODE */}
+          {step === "confirmPasscode" && (
+            <StepWrapper stepKey={step}>
+              <View className="items-center">
+                <View className="h-12 w-12 rounded-full bg-muted items-center justify-center mb-6">
+                  <Lock size={20} color="#8a8075" />
+                </View>
+
+                <Text className="text-2xl font-medium">
+                  Confirm your passcode
+                </Text>
+                <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
+                  Enter your 4-digit code again to confirm.
+                </Text>
+
+                {/* Dots */}
+                <View className="flex-row my-8">
+                  {[0, 1, 2, 3].map((i) => (
+                    <PasscodeDot key={i} filled={confirmPasscode.length > i} />
+                  ))}
+                </View>
+
+                {/* Numpad */}
+                <View className="flex-row flex-wrap justify-center w-full px-4 gap-3">
+                  {[
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                    "6",
+                    "7",
+                    "8",
+                    "9",
+                    "",
+                    "0",
+                    "delete",
+                  ].map((v, i) => (
+                    <Pressable
+                      key={i}
+                      className="w-1/4 h-16 items-center justify-center rounded-2xl bg-muted"
+                      onPress={() => {
+                        haptic();
+                        v === "delete"
+                          ? handleBackspace()
+                          : v && handleConfirmPasscodePress(v);
+                      }}
+                    >
+                      {v === "delete" ? (
+                        <Delete size={24} color="#5E5851" />
+                      ) : (
+                        <Text className="text-2xl text-foreground font-semibold">
+                          {v}
+                        </Text>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Pressable className="mt-6">
+                  <Text className="text-mutedForeground/70 text-sm">
+                    Forgot your passcode? We can help.
+                  </Text>
+                </Pressable>
+              </View>
+            </StepWrapper>
+          )}
+
+          {/* NICKNAME */}
+          {step === "nickname" && (
+            <StepWrapper stepKey={step}>
+              <View className="items-center mt-8">
+                <View className="h-12 w-12 rounded-full bg-muted items-center justify-center mb-6">
+                  <User size={20} color="#8a8075" />
+                </View>
+
+                <Text className="text-2xl font-medium">
+                  What should we call you?
+                </Text>
+                <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
+                  A nickname for your partner to see.{"\n"}You can always change
+                  this later.
+                </Text>
+
+                <TextInput
+                  className="h-16 w-full rounded-2xl px-6 mt-9 text-lg text-center bg-card border border-muted focus:border-primary"
+                  placeholder="Your nickname"
+                  placeholderTextColor="#BDB7B0"
+                  value={nickname}
+                  onChangeText={setNickname}
+                />
+
+                <Pressable
+                  onPress={handleFinish}
+                  className="h-16 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
+                >
+                  <Text className="text-white text-lg font-medium mr-2">
+                    Continue
+                  </Text>
+                  <ArrowRight size={15} color="white" />
+                </Pressable>
+              </View>
+            </StepWrapper>
+          )}
+
+          {/* COMPLETE */}
+          {step === "complete" && (
+            <StepWrapper stepKey={step}>
+              <View className="items-center mt-10">
+                <View className="h-12 w-12 rounded-full bg-muted items-center justify-center mb-6">
+                  <Check size={20} color="#8a8075" />
+                </View>
+
+                <Text className="text-2xl font-medium">You’re all set</Text>
+                <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
+                  Your private space is ready.{"\n"}Let's find your person.
+                </Text>
+              </View>
+            </StepWrapper>
+          )}
+        </View>
+
+        {/* Footer Pagination Dots */}
+        <View className="flex-row justify-center pb-12">
+          <View
+            className={`h-2 w-3 rounded-full mx-1 ${step === "email" ? "bg-primary w-7" : "bg-muted"}`}
+          />
+          <View
+            className={`h-2 w-3 rounded-full mx-1 ${step === "passcode" ? "bg-primary w-7" : "bg-muted"}`}
+          />
+          <View className={`h-2 w-3 rounded-full mx-1 bg-muted`} />
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
+export default SignUp;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9F7F5" },
-  inner: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 40,
-  },
-  header: { alignItems: "center", marginTop: 20 },
-  iconCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#EBE3DF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  brandTitle: { fontSize: 22, fontWeight: "600", color: "#4A4A4A" },
-  brandSubtitle: { fontSize: 14, color: "#9E9E9E", marginTop: 4 },
-  content: { width: "100%", alignItems: "center", paddingHorizontal: 40 },
-  stepIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#F2EBE7",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  stepTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 10,
-  },
-  stepDescription: {
-    textAlign: "center",
-    color: "#8E8E8E",
-    lineHeight: 20,
-    marginBottom: 30,
-  },
-  input: {
-    width: "100%",
-    height: 55,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: "#E8E0DA",
-    paddingHorizontal: 20,
-    fontSize: 16,
-    backgroundColor: "white",
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  button: {
-    width: "100%",
-    height: 55,
-    backgroundColor: "#D8C2BC",
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  buttonText: { color: "white", fontSize: 16, fontWeight: "600" },
-  footerNote: { marginTop: 20, fontSize: 12, color: "#BDBDBD" },
-  skipText: { color: "#BDBDBD", fontSize: 14 },
-  // Passcode Styles
-  passcodeDisplay: { flexDirection: "row", marginBottom: 30 },
-  passcodeDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#E0E0E0",
-    marginHorizontal: 10,
-  },
-  passcodeDotFilled: { backgroundColor: "#D8C2BC" },
-  keypad: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    width: 280,
-    justifyContent: "center",
-  },
-  key: {
-    width: 80,
-    height: 60,
-    justifyContent: "center",
-    alignItems: "center",
-    margin: 5,
-  },
-  keyText: { fontSize: 24, color: "#4A4A4A" },
-  // Dot Pagination
-  dotContainer: { flexDirection: "row", marginBottom: 20 },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#E0E0E0",
-    marginHorizontal: 5,
-  },
-  activeDot: { backgroundColor: "#D8C2BC", width: 20 },
+  keyText: { fontSize: 22, color: "#4A4A4A" },
 });

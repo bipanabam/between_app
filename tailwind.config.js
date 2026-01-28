@@ -18,6 +18,7 @@ module.exports = {
         cardForeground: "#38332e",
         destructive: "#c27070",
         destructiveForeground: "#fbfaf9",
+        border: "#ded9d3",
       },
     },
   },
