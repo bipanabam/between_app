@@ -1,16 +1,31 @@
+import { getActiveInvite } from "@/lib/appwrite";
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import { Copy, Heart } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const Invite = ({ code }: { code: string }) => {
+const Invite = () => {
   const router = useRouter();
+  const [code, setCode] = useState<string | null>(null);
 
-  const onCopy = () => {
+  // Fetch invite on mount
+  useEffect(() => {
+    const loadInvite = async () => {
+      const invite = await getActiveInvite();
+      setCode(invite?.code ?? null);
+    };
+
+    loadInvite();
+  }, []);
+
+  const onCopy = async () => {
+    if (!code) return;
+    await Clipboard.setStringAsync(code);
     alert("Code Copied");
   };
-  
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 px-8 items-center">
@@ -41,7 +56,7 @@ const Invite = ({ code }: { code: string }) => {
         {/* Code Card */}
         <View className="w-4/5 rounded-3xl bg-accent p-6 items-center mb-3">
           <Text className="text-3xl tracking-widest text-foreground mb-4">
-            {code ? code : "bet-1278"}
+            {code ?? "Loading..."}
           </Text>
 
           <Pressable

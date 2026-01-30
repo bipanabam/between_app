@@ -1,5 +1,9 @@
-import { account, ensureUserDocument } from "@/lib/appwrite";
-import { UserDocument } from "@/types/type";
+import {
+  account,
+  ensurePairDocument,
+  ensureUserDocument,
+} from "@/lib/appwrite";
+import { PairDocument, UserDocument } from "@/types/type";
 import { useRouter } from "expo-router";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { AppState } from "react-native";
@@ -9,6 +13,7 @@ type AppStatus =
   | "unauthenticated"
   | "needsProfile"
   | "needsPairing"
+  | "pairingInProgress"
   | "ready"
   | "locked";
 
@@ -25,6 +30,7 @@ type AuthContextType = {
 const computeStatus = (
   isAuthenticated: boolean,
   user?: UserDocument | null,
+  pair?: PairDocument | null,
   isLocked?: boolean,
 ): AppStatus => {
   if (!isAuthenticated) return "unauthenticated";
@@ -39,6 +45,10 @@ const computeStatus = (
 
   if (!user?.pairId) {
     return "needsPairing";
+  }
+  // Pair exists but partner missing
+  if (pair && !pair.partnerTwo) {
+    return "pairingInProgress";
   }
 
   return "ready";
@@ -60,7 +70,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [bootstrapped, setBootstrapped] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<UserDocument | null>(null);
-  const status = computeStatus(isAuthenticated, user, isLocked);
+  const [pair, setPair] = useState<PairDocument | null>(null);
+  const status = computeStatus(isAuthenticated, user, pair, isLocked);
   const router = useRouter();
 
   const lockApp = () => {
@@ -80,6 +91,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setUser(userDoc as UserDocument);
       setIsAuthenticated(true);
+
+      const pairDoc = await ensurePairDocument();
+      if (pairDoc) {
+        setPair(pairDoc as PairDocument);
+      }
 
       if (userDoc.passcodeHash) {
         setIsLocked(true);

@@ -12,6 +12,7 @@ const _PairingLayout = () => {
       <Stack.Screen name="index" options={{ animation: "fade" }} />
       <Stack.Screen name="invite" options={{ animation: "fade" }} />
       <Stack.Screen name="enter-code" options={{ animation: "fade" }} />
+      <Stack.Screen name="success" options={{ animation: "fade" }} />
     </Stack>
   );
 };

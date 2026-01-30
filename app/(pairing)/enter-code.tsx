@@ -1,3 +1,4 @@
+import { joinPairByCode } from "@/lib/appwrite";
 import { Link, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import React, { useState } from "react";
@@ -8,10 +9,15 @@ const EnterCode = () => {
   const [code, setCode] = useState("");
   const router = useRouter();
 
-  const handleSubmit = () => {
-    // Logic
-    router.push("/(tabs)/between");
+  const handleSubmit = async () => {
+    try {
+      await joinPairByCode(code);
+      router.replace("/(pairing)/success");
+    } catch (e) {
+      alert("Invalid or expired code");
+    }
   };
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <Link href="/(pairing)/invite" className="absolute z-10 left-9 top-16">
@@ -23,7 +29,7 @@ const EnterCode = () => {
           Enter their code
         </Text>
 
-        <Text className="text-sm text-mutedForeground text-center mb-8">
+        <Text className="text-sm text-mutedForeground text-center mb-5">
           Ask your person for the code they see.
         </Text>
 
@@ -31,14 +37,15 @@ const EnterCode = () => {
           value={code}
           onChangeText={setCode}
           autoCapitalize="characters"
-          placeholder="love-1234"
-          className="h-14 rounded-2xl bg-card text-center text-lg tracking-widest mb-6"
+          placeholder="BET-1234"
+          placeholderTextColor="#BDB7B0"
+          className="h-14 w-full rounded-2xl px-6 mt-9 text-lg text-center bg-card border border-muted focus:border-primary"
         />
 
         <Pressable
           onPress={handleSubmit}
           disabled={!code}
-          className="h-14 rounded-2xl bg-primary items-center justify-center disabled:opacity-40"
+          className="h-14 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
         >
           <Text className="text-white text-lg font-medium">Connect</Text>
         </Pressable>

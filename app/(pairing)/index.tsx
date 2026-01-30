@@ -1,3 +1,4 @@
+import { createPairAndInvite } from "@/lib/appwrite";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Pressable, Text, View } from "react-native";
@@ -5,6 +6,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const Index = () => {
   const router = useRouter();
+
+  const beginPairing = async () => {
+    const invite = await createPairAndInvite();
+
+    router.push({
+      pathname: "/(pairing)/invite",
+      params: { code: invite.code },
+    });
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-background">
       <View className="flex-1 items-center justify-center px-8">
@@ -21,7 +32,7 @@ const Index = () => {
         </Text>
 
         <Pressable
-          onPress={() => router.push("/(pairing)/invite")}
+          onPress={beginPairing}
           className="w-full h-14 rounded-full bg-primary/80 items-center justify-center"
         >
           <Text className="text-white text-lg font-medium">Begin</Text>

@@ -30,6 +30,12 @@ function RootLayoutNav() {
         }
         break;
 
+      case "pairingInProgress":
+        if (!inPairing) {
+          router.replace("/(pairing)/invite");
+        }
+        break;
+
       case "locked":
         if (!inLock) {
           router.replace("/(lock)");
