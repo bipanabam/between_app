@@ -1,20 +1,47 @@
 import { account, ensureUserDocument } from "@/lib/appwrite";
 import { UserDocument } from "@/types/type";
+import { useRouter } from "expo-router";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { AppState } from "react-native";
 
 type AppStatus =
   | "loading"
   | "unauthenticated"
   | "needsProfile"
   | "needsPairing"
-  | "ready";
+  | "ready"
+  | "locked";
 
 type AuthContextType = {
   loading: boolean;
   isAuthenticated: boolean;
   user?: UserDocument | null;
   refreshUser: () => Promise<void>;
+  lockApp: () => void;
+  unlockApp: () => Promise<void>;
   status: AppStatus;
+};
+
+const computeStatus = (
+  isAuthenticated: boolean,
+  user?: UserDocument | null,
+  isLocked?: boolean,
+): AppStatus => {
+  if (!isAuthenticated) return "unauthenticated";
+
+  // User must finish onboarding first
+  if (!user?.passcodeHash || !user?.nickname) {
+    return "needsProfile";
+  }
+
+  // Lock only applies if passcode exists
+  if (isLocked && user?.passcodeHash) return "locked";
+
+  if (!user?.pairId) {
+    return "needsPairing";
+  }
+
+  return "ready";
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -22,47 +49,46 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   user: null,
   refreshUser: async () => {},
+  lockApp: () => {},
+  unlockApp: async () => {},
   status: "loading",
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<AppStatus>("loading");
+  const [isLocked, setIsLocked] = useState(false);
+  const [bootstrapped, setBootstrapped] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<UserDocument | null>(null);
+  const status = computeStatus(isAuthenticated, user, isLocked);
+  const router = useRouter();
 
-  const computeStatus = (
-    isAuthenticated: boolean,
-    user?: UserDocument | null,
-  ): AppStatus => {
-    if (!isAuthenticated) return "unauthenticated";
-
-    if (!user?.passcodeHash || !user?.nickname) {
-      return "needsProfile";
-    }
-
-    if (!user?.pairId) {
-      return "needsPairing";
-    }
-
-    return "ready";
+  const lockApp = () => {
+    setIsLocked(true);
   };
+
+  const unlockApp = async () => {
+    setIsLocked(false);
+  };
+  // const lockApp = () => setIsLocked(true);
+  // const unlockApp = () => setIsLocked(false);
 
   const bootstrap = async () => {
     try {
       await account.get();
       const userDoc = await ensureUserDocument();
-      console.log(userDoc);
 
       setUser(userDoc as UserDocument);
       setIsAuthenticated(true);
 
-      setStatus(computeStatus(true, userDoc));
+      if (userDoc.passcodeHash) {
+        setIsLocked(true);
+      }
     } catch {
       setUser(null);
       setIsAuthenticated(false);
-      setStatus("unauthenticated");
     } finally {
+      setBootstrapped(true);
       setLoading(false);
     }
   };
@@ -70,12 +96,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshUser = async () => {
     const userDoc = await ensureUserDocument();
     setUser(userDoc as UserDocument);
-    setStatus(computeStatus(true, userDoc));
   };
 
   useEffect(() => {
     bootstrap();
   }, []);
+
+  // Detect App Background/Resume
+  useEffect(() => {
+    let previousState = AppState.currentState;
+
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (
+        previousState.match(/inactive|background/) &&
+        nextState === "active"
+      ) {
+        if (user?.passcodeHash) {
+          lockApp();
+          router.replace("/");
+        }
+      }
+
+      previousState = nextState;
+      console.log("APP STATE CHANGED", previousState, "→", nextState);
+    });
+
+    return () => sub.remove();
+  }, [user?.passcodeHash]);
 
   return (
     <AuthContext.Provider
@@ -85,6 +132,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user,
         refreshUser,
         status,
+        lockApp,
+        unlockApp,
       }}
     >
       {children}
