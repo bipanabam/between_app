@@ -1,6 +1,7 @@
+// import { useAuth } from "@/providers/AuthProvider";
 import { Feather } from "@expo/vector-icons";
-import { Redirect, Tabs } from "expo-router";
-import React, { useState } from "react";
+import { Tabs } from "expo-router";
+import React from "react";
 import { Text, View } from "react-native";
 
 // Authenticated and paired
@@ -23,11 +24,13 @@ const TabIcon = ({ focused, name, title }: any) => {
 };
 
 const _Layout = () => {
-  const [authenticated, setAuthenticated] = useState(false);
+  // const { loading, isAuthenticated } = useAuth();
 
-  if (!authenticated) {
-    return <Redirect href="/(pairing)" />;
-  }
+  // if (loading) return null;
+
+  // if (!isAuthenticated) {
+  //   return <Redirect href="/(auth)/sign-up" />;
+  // }
 
   return (
     <Tabs

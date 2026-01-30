@@ -1,12 +1,16 @@
-import { Stack } from "expo-router";
+import { useAuth } from "@/providers/AuthProvider";
+import { Redirect, Stack } from "expo-router";
 import React from "react";
 
 const _AuthLayout = () => {
-  // const [authenticated, setAuthenticated] = useState(false);
+  const { loading, isAuthenticated, user } = useAuth();
 
-  // if (authenticated) {
-  //   return <Redirect href="/(tabs)" />;
-  // }
+  if (loading) return null;
+
+  if (isAuthenticated && user?.passcodeHash && user?.nickname) {
+    return <Redirect href="/(pairing)" />;
+  }
+
   return (
     <Stack
       screenOptions={{

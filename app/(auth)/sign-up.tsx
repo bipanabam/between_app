@@ -1,6 +1,11 @@
+import PasscodeDot from "@/components/PasscodeDot";
 import StepWrapper from "@/components/StepWrapper";
+import { requestOtp, updateUser, verifyOtp } from "@/lib/appwrite";
+import { useAuth } from "@/providers/AuthProvider";
+import { hashPasscode } from "@/types/helpers";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import {
   ArrowRight,
   Check,
@@ -10,10 +15,9 @@ import {
   Mail,
   User,
 } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
-  Animated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -23,6 +27,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 // import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Step =
@@ -34,8 +39,10 @@ type Step =
   | "complete";
 
 const SignUp = () => {
+  const { loading, isAuthenticated, refreshUser } = useAuth();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [passcode, setPasscode] = useState("");
   const [confirmPasscode, setConfirmPasscode] = useState("");
   const [nickname, setNickname] = useState("");
@@ -45,40 +52,66 @@ const SignUp = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const PasscodeDot = ({ filled }: { filled: boolean }) => {
-    const scale = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!loading && isAuthenticated && step === "emailSent") {
+      setStep("passcode");
+    }
+  }, [loading, isAuthenticated, step]);
 
-    useEffect(() => {
-      Animated.spring(scale, {
-        toValue: filled ? 1.2 : 1,
-        useNativeDriver: true,
-        friction: 6,
-      }).start();
-    }, [filled]);
+  // Restore step when screen loads
+  useEffect(() => {
+    const restoreStep = async () => {
+      if (isAuthenticated) return; // user already onboarded
+      const saved = await SecureStore.getItemAsync("signup_step");
 
-    return (
-      <Animated.View
-        style={{ transform: [{ scale }] }}
-        className={`w-3.5 h-3.5 mx-2 rounded-full ${
-          filled ? "bg-primary" : "bg-muted"
-        }`}
-      />
-    );
-  };
+      if (saved) {
+        setStep(saved as Step);
+      }
+    };
 
-  const handleSendMagicLink = async () => {
+    restoreStep();
+  }, [isAuthenticated]);
+
+  // Persist step whenever it changes
+  useEffect(() => {
+    SecureStore.setItemAsync("signup_step", step);
+  }, [step]);
+
+  // Auto Submit When 6 Digits Entered
+  useEffect(() => {
+    if (otp.length === 6) {
+      handleVerifyOtp();
+    }
+  }, [otp]);
+
+  const handleSendOtp = async () => {
     if (!email.includes("@")) {
       Alert.alert("Invalid email");
       return;
     }
 
-    // TODO: Appwrite magic link
-    setStep("emailSent");
+    try {
+      await requestOtp(email);
+      setStep("emailSent");
+    } catch {
+      Alert.alert("Failed to send code. Try again.");
+    }
+  };
 
-    // Simulate magic link opened
-    setTimeout(() => {
+  const handleVerifyOtp = async () => {
+    if (otp.length !== 6) {
+      Alert.alert("Enter 6-digit code");
+      return;
+    }
+
+    try {
+      await verifyOtp(otp);
+      await refreshUser();
+      setOtp("");
       setStep("passcode");
-    }, 1500);
+    } catch {
+      Alert.alert("Invalid code. Try again.");
+    }
   };
 
   const handlePasscodePress = (num: string) => {
@@ -117,8 +150,10 @@ const SignUp = () => {
 
     if (next.length === 4) {
       if (next !== passcode) {
-        Alert.alert("Passcode didn't match!");
+        Alert.alert("Passcodes didn't match. Try again.");
+        setPasscode("");
         setConfirmPasscode("");
+        setStep("passcode");
         return;
       }
       setStep("nickname");
@@ -126,10 +161,31 @@ const SignUp = () => {
   };
 
   const handleFinish = async () => {
-    setStep("complete");
-    setTimeout(() => {
-      router.replace("/(pairing)");
-    }, 2500);
+    if (!nickname.trim()) {
+      Alert.alert("Please enter a nickname");
+      return;
+    }
+
+    try {
+      const hash = await hashPasscode(passcode);
+
+      await SecureStore.setItemAsync("between_passcode_hash", hash);
+
+      await updateUser({
+        passcodeHash: hash,
+        nickname,
+      });
+
+      setStep("complete");
+      await SecureStore.deleteItemAsync("signup_step");
+
+      setTimeout(() => {
+        router.replace("/(pairing)");
+      }, 2000);
+    } catch (e) {
+      // console.log(e);
+      Alert.alert("Something went wrong. Please try again.");
+    }
   };
 
   return (
@@ -177,7 +233,7 @@ const SignUp = () => {
                 />
 
                 <Pressable
-                  onPress={handleSendMagicLink}
+                  onPress={handleSendOtp}
                   className="h-16 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
                   disabled={!email}
                 >
@@ -193,7 +249,7 @@ const SignUp = () => {
             </StepWrapper>
           )}
 
-          {/* EMAIL SENT */}
+          {/* OTP VERIFY */}
           {step === "emailSent" && (
             <StepWrapper stepKey={step}>
               <View className="items-center mt-8">
@@ -201,10 +257,44 @@ const SignUp = () => {
                   <Mail size={20} color="#8a8075" />
                 </View>
 
-                <Text className="text-2xl font-medium">Check your email</Text>
-                <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
-                  Open the magic link to continue.
+                <Text className="text-2xl font-medium">
+                  Enter verification code
                 </Text>
+
+                <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
+                  We sent a 6-digit code to{"\n"}
+                  <Text className="text-foreground font-medium">{email}</Text>
+                </Text>
+
+                {/* OTP Input */}
+                <TextInput
+                  className="h-16 w-full rounded-2xl px-6 mt-9 text-lg text-center tracking-widest bg-card border border-muted focus:border-primary"
+                  placeholder="000000"
+                  placeholderTextColor="#BDB7B0"
+                  value={otp}
+                  onChangeText={(text) => setOtp(text.replace(/[^0-9]/g, ""))}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+
+                <Pressable
+                  onPress={handleVerifyOtp}
+                  className="h-16 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
+                  disabled={otp.length !== 6}
+                >
+                  <Text className="text-white text-lg font-medium mr-2">
+                    Verify
+                  </Text>
+                  <ArrowRight size={15} color="white" />
+                </Pressable>
+
+                {/* Resend */}
+                <Pressable onPress={handleSendOtp} className="mt-6">
+                  <Text className="text-sm text-mutedForeground">
+                    Didn't receive code?{" "}
+                    <Text className="text-primary font-medium">Resend</Text>
+                  </Text>
+                </Pressable>
               </View>
             </StepWrapper>
           )}

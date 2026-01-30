@@ -1,8 +1,17 @@
-import { Stack } from "expo-router";
+import { useAuth } from "@/providers/AuthProvider";
+import { Redirect, Stack } from "expo-router";
 import React from "react";
 
 // Authenticated but not paired
 const _PairingLayout = () => {
+  const { loading, isAuthenticated, user } = useAuth();
+
+  if (loading) return null;
+
+  if (!isAuthenticated || !user?.passcodeHash || !user?.nickname) {
+    return <Redirect href="/(auth)/sign-up" />;
+  }
+
   return (
     <Stack
       screenOptions={{
