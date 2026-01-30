@@ -39,10 +39,11 @@ type Step =
   | "complete";
 
 const SignUp = () => {
-  const { loading, isAuthenticated, refreshUser } = useAuth();
+  const { loading, isAuthenticated, user, refreshUser } = useAuth();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
+  const [verifying, setVerifying] = useState(false);
   const [passcode, setPasscode] = useState("");
   const [confirmPasscode, setConfirmPasscode] = useState("");
   const [nickname, setNickname] = useState("");
@@ -61,7 +62,7 @@ const SignUp = () => {
   // Restore step when screen loads
   useEffect(() => {
     const restoreStep = async () => {
-      if (isAuthenticated) return; // user already onboarded
+      if (isAuthenticated && user?.passcodeHash) return; // user already onboarded
       const saved = await SecureStore.getItemAsync("signup_step");
 
       if (saved) {
@@ -74,12 +75,15 @@ const SignUp = () => {
 
   // Persist step whenever it changes
   useEffect(() => {
-    SecureStore.setItemAsync("signup_step", step);
+    const setSignupStep = async () => {
+      await SecureStore.setItemAsync("signup_step", step);
+    };
+    setSignupStep();
   }, [step]);
 
   // Auto Submit When 6 Digits Entered
   useEffect(() => {
-    if (otp.length === 6) {
+    if (!verifying && otp.length === 6) {
       handleVerifyOtp();
     }
   }, [otp]);
@@ -104,10 +108,12 @@ const SignUp = () => {
       return;
     }
 
+    setVerifying(true);
     try {
       await verifyOtp(otp);
       await refreshUser();
       setOtp("");
+      setVerifying(false);
       setStep("passcode");
     } catch {
       Alert.alert("Invalid code. Try again.");
@@ -119,7 +125,6 @@ const SignUp = () => {
 
     const next = passcode + num;
     setPasscode(next);
-    console.log(passcode);
 
     if (next.length === 4) {
       setStep("confirmPasscode");
@@ -134,13 +139,6 @@ const SignUp = () => {
       setConfirmPasscode((p) => p.slice(0, -1));
     }
   };
-
-  // const handlePasscodeComplete = async () => {
-  //   if (passcode.length !== 4) return;
-
-  //   // await AsyncStorage.setItem("between_passcode", passcode);
-  //   setStep("confirmPasscode");
-  // };
 
   const handleConfirmPasscodePress = (num: string) => {
     if (confirmPasscode.length >= 4) return;
@@ -175,13 +173,9 @@ const SignUp = () => {
         passcodeHash: hash,
         nickname,
       });
-
       setStep("complete");
+      await refreshUser();
       await SecureStore.deleteItemAsync("signup_step");
-
-      setTimeout(() => {
-        router.replace("/(pairing)");
-      }, 2000);
     } catch (e) {
       // console.log(e);
       Alert.alert("Something went wrong. Please try again.");
