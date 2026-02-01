@@ -17,6 +17,7 @@ import {
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -27,8 +28,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-// import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Step =
   | "email"
@@ -82,11 +81,11 @@ const SignUp = () => {
   }, [step]);
 
   // Auto Submit When 6 Digits Entered
-  useEffect(() => {
-    if (!verifying && otp.length === 6) {
-      handleVerifyOtp();
-    }
-  }, [otp]);
+  // useEffect(() => {
+  //   if (!verifying && otp.length === 6) {
+  //     handleVerifyOtp();
+  //   }
+  // }, [otp]);
 
   const handleSendOtp = async () => {
     if (!email.includes("@")) {
@@ -103,20 +102,25 @@ const SignUp = () => {
   };
 
   const handleVerifyOtp = async () => {
+    if (verifying) return;
+
     if (otp.length !== 6) {
       Alert.alert("Enter 6-digit code");
       return;
     }
 
     setVerifying(true);
+
     try {
       await verifyOtp(otp);
       await refreshUser();
       setOtp("");
-      setVerifying(false);
       setStep("passcode");
-    } catch {
+    } catch (e) {
+      console.log("VERIFY ERROR", e);
       Alert.alert("Invalid code. Try again.");
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -266,6 +270,7 @@ const SignUp = () => {
                   placeholder="000000"
                   placeholderTextColor="#BDB7B0"
                   value={otp}
+                  editable={!verifying}
                   onChangeText={(text) => setOtp(text.replace(/[^0-9]/g, ""))}
                   keyboardType="number-pad"
                   maxLength={6}
@@ -280,6 +285,28 @@ const SignUp = () => {
                     Verify
                   </Text>
                   <ArrowRight size={15} color="white" />
+                </Pressable>
+
+                <Pressable
+                  onPress={handleVerifyOtp}
+                  disabled={otp.length !== 6 || verifying}
+                  className="h-16 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
+                >
+                  {verifying ? (
+                    <>
+                      <ActivityIndicator color="white" />
+                      <Text className="text-white text-lg font-medium ml-3">
+                        Verifying...
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text className="text-white text-lg font-medium">
+                        Verify
+                      </Text>
+                      <ArrowRight size={15} color="white" />
+                    </>
+                  )}
                 </Pressable>
 
                 {/* Resend */}

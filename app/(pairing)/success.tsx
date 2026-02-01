@@ -1,15 +1,13 @@
-import { getPartner } from "@/lib/appwrite";
+import PairConnectionAnimation from "@/components/PairConnectionAnimation";
+import { ensureUserDocument, getPartner } from "@/lib/appwrite";
 import { router } from "expo-router";
+import { Heart } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Image, Pressable, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 
-type Props = {
-  partnerName?: string;
-  partnerAvatar?: string;
-};
-
-const Success = ({ partnerName = "Your Partner", partnerAvatar }: Props) => {
+const Success = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [me, setMe] = useState<any>(null);
   const [partner, setPartner] = useState<any>(null);
 
   useEffect(() => {
@@ -21,20 +19,24 @@ const Success = ({ partnerName = "Your Partner", partnerAvatar }: Props) => {
   }, []);
 
   useEffect(() => {
-    const loadPartner = async () => {
-      const partnerDoc = await getPartner();
+    const load = async () => {
+      const [meDoc, partnerDoc] = await Promise.all([
+        ensureUserDocument(),
+        getPartner(),
+      ]);
+      setMe(meDoc);
       setPartner(partnerDoc);
     };
 
-    loadPartner();
+    load();
   }, []);
 
   return (
     <View className="flex-1 bg-[#F6F2ED] items-center justify-center px-6">
       <Animated.View style={{ opacity: fadeAnim }} className="items-center">
         {/* Success Icon */}
-        <View className="w-24 h-24 rounded-full bg-white items-center justify-center shadow-sm mb-8">
-          <Text className="text-4xl">🤍</Text>
+        <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center mb-8">
+          <Heart size={27} color="#bc8f97" fill="#bc8f97" />
         </View>
 
         {/* Title */}
@@ -48,31 +50,18 @@ const Success = ({ partnerName = "Your Partner", partnerAvatar }: Props) => {
           space together.
         </Text>
 
-        {/* Partner Avatar */}
-        <View className="mt-10 items-center">
-          {partner?.avatar ? (
-            <Image
-              source={{ uri: partner.avatar }}
-              className="w-20 h-20 rounded-full"
-            />
-          ) : (
-            <View className="w-20 h-20 rounded-full bg-white items-center justify-center shadow-sm">
-              <Text className="text-xl">👤</Text>
-            </View>
-          )}
-
-          <Text className="mt-3 text-neutral-700 font-medium">
-            {partner?.nickname}
-          </Text>
-        </View>
+        {/* Pair Animation Row */}
+        <PairConnectionAnimation me={me} partner={partner} />
 
         {/* Continue Button */}
-        <Pressable
-          onPress={() => router.replace("/(tabs)/between")}
-          className="mt-14 bg-neutral-900 px-10 py-4 rounded-2xl"
-        >
-          <Text className="text-white font-medium">Continue</Text>
-        </Pressable>
+        {me || partner ? (
+          <Pressable
+            onPress={() => router.replace("/(tabs)/between")}
+            className="mt-12 px-10 py-4 rounded-2xl bg-primary/80 items-center justify-center"
+          >
+            <Text className="text-white text-lg font-medium">Continue</Text>
+          </Pressable>
+        ) : null}
       </Animated.View>
     </View>
   );

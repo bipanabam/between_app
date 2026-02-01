@@ -2,19 +2,32 @@ import { joinPairByCode } from "@/lib/appwrite";
 import { Link, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import React, { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const EnterCode = () => {
   const [code, setCode] = useState("");
+  const [connecting, setConnecting] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async () => {
+    if (connecting) return;
+
     try {
-      await joinPairByCode(code);
+      setConnecting(true);
+      await joinPairByCode(code.trim().toUpperCase());
       router.replace("/(pairing)/success");
-    } catch (e) {
-      alert("Invalid or expired code");
+    } catch (e: any) {
+      console.log(e);
+      alert(e.message || "Failed to connect");
+    } finally {
+      setConnecting(false);
     }
   };
 
@@ -36,6 +49,7 @@ const EnterCode = () => {
         <TextInput
           value={code}
           onChangeText={setCode}
+          editable={!connecting}
           autoCapitalize="characters"
           placeholder="BET-1234"
           placeholderTextColor="#BDB7B0"
@@ -44,10 +58,19 @@ const EnterCode = () => {
 
         <Pressable
           onPress={handleSubmit}
-          disabled={!code}
+          disabled={!code || connecting}
           className="h-14 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
         >
-          <Text className="text-white text-lg font-medium">Connect</Text>
+          {connecting ? (
+            <>
+              <ActivityIndicator color="white" />
+              <Text className="text-white text-lg font-medium ml-3">
+                Connecting...
+              </Text>
+            </>
+          ) : (
+            <Text className="text-white text-lg font-medium">Connect</Text>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>

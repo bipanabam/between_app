@@ -41,21 +41,26 @@ export const requestMagicLink = async (email: string) => {
 };
 
 export const requestOtp = async (email: string) => {
-  const session = await account.createEmailToken(ID.unique(), email);
+  const token = await account.createEmailToken(ID.unique(), email);
 
-  await SecureStore.setItemAsync("otp_user_id", session.userId);
+  await SecureStore.setItemAsync("otp_user_id", token.userId);
+  // await SecureStore.setItemAsync("otp_secret", token.secret);
 };
 
 export const verifyOtp = async (otp: string) => {
   const userId = await SecureStore.getItemAsync("otp_user_id");
 
-  if (!userId) throw new Error("Missing userId");
+  if (!userId || !otp) throw new Error("Missing token data");
+  try {
+    await account.createSession(userId, otp);
 
-  await account.createSession(userId, otp);
+    await SecureStore.deleteItemAsync("otp_user_id");
+    await SecureStore.deleteItemAsync("otp_secret");
 
-  await SecureStore.deleteItemAsync("otp_user_id");
-
-  return await ensureUserDocument();
+    return await ensureUserDocument();
+  } catch (e) {
+    throw new Error("Error validating otp.");
+  }
 };
 
 export const ensureUserDocument = async () => {
@@ -176,12 +181,14 @@ export const joinPairByCode = async (code: string) => {
   const invites = await databases.listDocuments<PairInviteDocument>(
     appwriteConfig.databaseId,
     appwriteConfig.pairInviteCollectionId,
-    [Query.equal("code", code)],
+    [Query.equal("code", code.trim().toUpperCase()), Query.limit(1)],
   );
 
   if (!invites.documents.length) throw new Error("Invalid code");
 
   const invite = invites.documents[0];
+
+  if (invite.used) throw new Error("Invite already used");
 
   // Check expiry
   if (new Date(invite.expiresAt) < new Date()) {
@@ -198,50 +205,101 @@ export const joinPairByCode = async (code: string) => {
   if (pair.partnerTwo) {
     throw new Error("Pair already full");
   }
+  if (pair.partnerOne === userId) throw new Error("Cannot join your own pair");
 
-  // If user already created own pair → delete it
-  if (user.pairId && user.pairId !== pair.$id) {
-    await databases.deleteDocument(
-      appwriteConfig.databaseId,
-      appwriteConfig.pairCollectionId,
-      user.pairId,
-    );
-  }
-
-  // Update pair
-  await databases.updateDocument(
+  // race guard
+  const freshPair = await databases.getDocument<PairDocument>(
     appwriteConfig.databaseId,
     appwriteConfig.pairCollectionId,
     pair.$id,
-    {
-      partnerTwo: userId,
-      isComplete: true,
-    },
-    [
-      Permission.read(Role.user(pair.partnerOne)),
-      Permission.read(Role.user(userId)),
-      Permission.update(Role.user(pair.partnerOne)),
-      Permission.update(Role.user(userId)),
-    ],
   );
 
-  // update invite
-  await databases.updateDocument(
-    appwriteConfig.databaseId,
-    appwriteConfig.pairInviteCollectionId,
-    invite.$id,
-    {
-      used: true,
-      usedBy: userId,
-    },
-  );
+  if (freshPair.partnerTwo)
+    throw new Error("Invite code not available anymore.");
 
-  // update user
-  await updateUser({
-    pairId: pair.$id,
-  });
+  let pairUpdated = false;
+  let inviteUpdated = false;
+  let oldPairDeleted = false;
 
-  return pair;
+  try {
+    // If user already created own pair → delete it
+    if (user.pairId && user.pairId !== pair.$id) {
+      await databases.deleteDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.pairCollectionId,
+        user.pairId,
+      );
+      oldPairDeleted = true;
+    }
+
+    // Update pair
+    await databases.updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.pairCollectionId,
+      pair.$id,
+      {
+        partnerTwo: userId,
+        isComplete: true,
+      },
+      [
+        Permission.read(Role.user(userId)),
+        Permission.update(Role.user(userId)),
+      ],
+    );
+    pairUpdated = true;
+
+    // update invite
+    await databases.updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.pairInviteCollectionId,
+      invite.$id,
+      {
+        used: true,
+        usedBy: userId,
+      },
+    );
+    inviteUpdated = true;
+
+    // update user
+    await updateUser({
+      pairId: pair.$id,
+    });
+
+    return pair;
+  } catch (err) {
+    console.log("JOIN FAILED — rolling back", err);
+    // rollback pair
+    if (pairUpdated) {
+      try {
+        await databases.updateDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.pairCollectionId,
+          pair.$id,
+          {
+            partnerTwo: null,
+            isComplete: false,
+          },
+        );
+      } catch {}
+    }
+
+    // rollback invite
+    if (inviteUpdated) {
+      try {
+        await databases.updateDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.pairInviteCollectionId,
+          invite.$id,
+          {
+            used: false,
+            usedBy: null,
+          },
+        );
+      } catch {}
+    }
+
+    throw err;
+  }
 };
 
 export const ensurePairDocument = async () => {
