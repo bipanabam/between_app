@@ -99,10 +99,10 @@ const PairConnectionAnimation = ({ me, partner }: Props) => {
         {me?.avatar ? (
           <Image
             source={{ uri: me.avatar }}
-            className="w-14 h-14 rounded-full"
+            className="w-16 h-16 rounded-full"
           />
         ) : (
-          <View className="w-14 h-14 rounded-full bg-white items-center justify-center">
+          <View className="w-16 h-16 rounded-full bg-white items-center justify-center">
             <Text>👤</Text>
           </View>
         )}
@@ -134,10 +134,10 @@ const PairConnectionAnimation = ({ me, partner }: Props) => {
         {partner?.avatar ? (
           <Image
             source={{ uri: partner.avatar }}
-            className="w-14 h-14 rounded-full"
+            className="w-16 h-16 rounded-full"
           />
         ) : (
-          <View className="w-14 h-14 rounded-full bg-white items-center justify-center">
+          <View className="w-16 h-16 rounded-full bg-white items-center justify-center">
             <Text>👤</Text>
           </View>
         )}
