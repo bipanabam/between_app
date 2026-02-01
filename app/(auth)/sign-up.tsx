@@ -278,17 +278,6 @@ const SignUp = () => {
 
                 <Pressable
                   onPress={handleVerifyOtp}
-                  className="h-16 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
-                  disabled={otp.length !== 6}
-                >
-                  <Text className="text-white text-lg font-medium mr-2">
-                    Verify
-                  </Text>
-                  <ArrowRight size={15} color="white" />
-                </Pressable>
-
-                <Pressable
-                  onPress={handleVerifyOtp}
                   disabled={otp.length !== 6 || verifying}
                   className="h-16 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
                 >
