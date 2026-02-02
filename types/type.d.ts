@@ -12,10 +12,6 @@ export interface UserDocument extends Models.Document {
   avatar?: string;
 }
 
-export interface CreatePairProps {
-  createdBy: string; // userId
-}
-
 export type PairStatus = "pending" | "active" | "cancelled" | "archived";
 export interface PairDocument extends Models.Document {
   status: "pending" | "active" | "cancelled" | "archived";
@@ -37,4 +33,12 @@ export interface PairInviteDocument extends Models.Document {
 
   used: boolean;
   usedBy?: string | null;
+}
+
+export interface MessageDocument extends Models.Document {
+  conversationId: string;
+  senderId: string;
+  text: string | null;
+  type: "text" | "image" | "audio";
+  status: "sent" | "delivered" | "read";
 }

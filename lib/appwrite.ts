@@ -1,4 +1,9 @@
-import { PairDocument, PairInviteDocument, UserDocument } from "@/types/type";
+import {
+  MessageDocument,
+  PairDocument,
+  PairInviteDocument,
+  UserDocument,
+} from "@/types/type";
 import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
 import {
@@ -20,6 +25,7 @@ export const appwriteConfig = {
   userCollectionId: "user",
   pairCollectionId: "pair",
   pairInviteCollectionId: "pairinvite",
+  messageCollectionId: "messages",
 };
 
 export const client = new Client();
@@ -61,6 +67,11 @@ export const verifyOtp = async (otp: string) => {
   } catch (e) {
     throw new Error("Error validating otp.");
   }
+};
+
+export const getUser = async () => {
+  const accountInfo = await account.get();
+  return accountInfo;
 };
 
 export const ensureUserDocument = async () => {
@@ -114,7 +125,7 @@ export const updateUser = async (data: {
   );
 };
 
-// pair
+// pair and pairInvite
 const generateCode = () => {
   return `BET-${Math.floor(1000 + Math.random() * 9000)}`;
 };
@@ -240,11 +251,18 @@ export const joinPairByCode = async (code: string) => {
       {
         partnerTwo: userId,
         isComplete: true,
+        status: "active",
       },
       [
         Permission.read(Role.user(userId)),
         Permission.update(Role.user(userId)),
       ],
+      //   [
+      //   Permission.read(Role.user(partnerOne)),
+      //   Permission.read(Role.user(partnerTwo)),
+      //   Permission.update(Role.user(partnerOne)),
+      //   Permission.update(Role.user(partnerTwo)),
+      // ]
     );
     pairUpdated = true;
 
@@ -278,6 +296,7 @@ export const joinPairByCode = async (code: string) => {
           {
             partnerTwo: null,
             isComplete: false,
+            status: "pending",
           },
         );
       } catch {}
@@ -364,4 +383,59 @@ export const getPartner = async (): Promise<UserDocument | null> => {
   }
 
   return partner;
+};
+
+// messages
+export const getMessages = async (pairId: string) => {
+  try {
+    const res = await databases.listDocuments<MessageDocument>(
+      appwriteConfig.databaseId,
+      appwriteConfig.messageCollectionId,
+      [
+        Query.equal("conversationId", pairId),
+        Query.orderAsc("$createdAt"),
+        Query.limit(50),
+      ],
+    );
+    return res.documents;
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const sendMessage = async ({
+  pairId,
+  text,
+  type = "text",
+}: {
+  pairId: string;
+  text: string;
+  type?: "text" | "image" | "audio" | "system";
+}) => {
+  const accountInfo = await account.get();
+  const senderId = accountInfo.$id;
+
+  const pair = await databases.getDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairCollectionId,
+    pairId,
+  );
+
+  return databases.createDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.messageCollectionId,
+    ID.unique(),
+    {
+      conversationId: pair.$id,
+      senderId,
+      text,
+      type,
+      status: "sent",
+    },
+    [
+      // Permission.read(Role.users()),
+      Permission.update(Role.user(senderId)),
+      // Permission.delete(Role.user(senderId)),
+    ],
+  );
 };

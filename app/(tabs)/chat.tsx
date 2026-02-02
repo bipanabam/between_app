@@ -1,22 +1,72 @@
 import ChatBubble from "@/components/ChatBubble";
 import ChatHeader from "@/components/ChatHeader";
 import ChatInput from "@/components/ChatInput";
-import { getPartner } from "@/lib/appwrite";
+import {
+  appwriteConfig,
+  client,
+  getMessages,
+  getPartner,
+  getUser,
+} from "@/lib/appwrite";
+import { MessageDocument } from "@/types/type";
+import { LegendList } from "@legendapp/list";
 import React, { useEffect, useState } from "react";
-import { KeyboardAvoidingView, ScrollView } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Chat = () => {
   const [partner, setPartner] = useState<any>(null);
-  const [messages, setMessages] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
+  const [messages, setMessages] = useState<MessageDocument[]>([]);
+  const [isloading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const load = async () => {
-      const partnerDoc = await getPartner();
-      setPartner(partnerDoc);
+    const handleFirstLoad = async () => {
+      setIsLoading(true);
+      try {
+        const [me, partnerDoc] = await Promise.all([getUser(), getPartner()]);
+
+        setUser(me);
+        setPartner(partnerDoc);
+
+        if (partnerDoc?.pairId) {
+          const messageDocs = await getMessages(partnerDoc.pairId);
+          setMessages(messageDocs);
+        }
+      } catch (err) {
+        console.log(err);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    load();
+
+    handleFirstLoad();
   }, []);
+
+  useEffect(() => {
+    if (!partner?.pairId) return;
+    const channel = `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.messageCollectionId}.documents`;
+
+    const unsub = client.subscribe(channel, (event) => {
+      if (!event.events.some((e) => e.endsWith(".create"))) return;
+
+      const msg = event.payload as MessageDocument;
+
+      if (msg.conversationId === partner.pairId) {
+        setMessages((prev) => [...prev, msg]);
+      }
+    });
+
+    return () => unsub();
+  }, [partner?.pairId]);
+
+  if (isloading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView
@@ -33,19 +83,26 @@ const Chat = () => {
         />
 
         {/* Messages */}
-        <ScrollView
-          className="flex-1 px-6 mt-2"
-          contentContainerStyle={{ paddingBottom: 40 }}
-        >
-          <ChatBubble left text="Good morning 🌅" />
-          <ChatBubble right text="Morning love. How did you sleep?" />
-          <ChatBubble left text="Really well. Had a dream about our trip 💗" />
-          <ChatBubble right text="Only 3 more weeks." />
-          <ChatBubble left text="Should we look at places tonight?" />
-        </ScrollView>
+        <LegendList
+          data={messages}
+          renderItem={({ item }) => {
+            const mine = item.senderId === user?.$id;
+
+            return <ChatBubble mine={mine} text={item.text ?? ""} />; // partner = left, me = right
+          }}
+          keyExtractor={(item) => item?.$id ?? "unknown"}
+          contentContainerStyle={{ padding: 12 }}
+          recycleItems={true}
+          initialScrollIndex={messages.length - 1}
+          alignItemsAtEnd
+          maintainScrollAtEnd
+          maintainScrollAtEndThreshold={0.5}
+          maintainVisibleContentPosition
+          estimatedItemSize={90}
+        />
 
         {/* Input */}
-        <ChatInput />
+        {partner?.pairId && <ChatInput pairId={partner.pairId} />}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
