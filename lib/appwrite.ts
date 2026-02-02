@@ -449,17 +449,26 @@ export const addReaction = async (
   userId: string,
   emoji: string,
 ) => {
+  const fresh = await databases.getDocument<MessageDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.messageCollectionId,
+    message.$id,
+  );
+
   let reactions: Record<string, string> = {};
 
   try {
-    if (message.reactions) {
-      reactions = JSON.parse(message.reactions);
+    if (fresh.reactions) {
+      reactions = JSON.parse(fresh.reactions);
     }
-  } catch {
-    reactions = {};
-  }
+  } catch {}
 
-  reactions[userId] = emoji;
+  // toggle
+  if (reactions[userId] === emoji) {
+    delete reactions[userId];
+  } else {
+    reactions[userId] = emoji;
+  }
 
   await databases.updateDocument(
     appwriteConfig.databaseId,
@@ -469,6 +478,7 @@ export const addReaction = async (
       reactions: JSON.stringify(reactions),
     },
   );
+  return reactions;
 };
 
 export const markMessagesRead = async (

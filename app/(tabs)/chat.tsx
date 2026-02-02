@@ -4,17 +4,18 @@ import ChatInput from "@/components/ChatInput";
 import {
   appwriteConfig,
   client,
-  databases,
   getMessages,
   getPartner,
   getUser,
-  markMessagesRead,
+  markMessagesRead
 } from "@/lib/appwrite";
 import { MessageDocument } from "@/types/type";
 import { LegendList } from "@legendapp/list";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Animated, KeyboardAvoidingView, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const EMOJIS = ["❤️", "🤍", "🥰", "🥹", "🌸", "✨", "🫶", "🫂", "💌"];
 
 const Chat = () => {
   const [partner, setPartner] = useState<any>(null);
@@ -22,8 +23,51 @@ const Chat = () => {
   const [messages, setMessages] = useState<MessageDocument[]>([]);
   const [replyingTo, setReplyingTo] = useState<MessageDocument | null>(null);
   const [isloading, setIsLoading] = useState(false);
-  const getSenderId = (m: MessageDocument) =>
-    typeof m.senderId === "string" ? m.senderId : m.senderId.$id;
+  const [activeReactionMsg, setActiveReactionMsg] = useState<{
+    message: MessageDocument;
+    position: { x: number; y: number };
+    mine: boolean;
+  } | null>(null);
+  
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  const getSenderId = (m: MessageDocument) => {
+    if (!m?.senderId) return undefined;
+
+    if (typeof m.senderId === "string") return m.senderId;
+
+    if (typeof m.senderId === "object" && "$id" in m.senderId) {
+      return m.senderId.$id;
+    }
+
+    return undefined;
+  };
+
+  useEffect(() => {
+    if (activeReactionMsg) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(scaleAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [activeReactionMsg]);
+
+  const handleReact = async (emoji: string) => {
+    if (!activeReactionMsg || !user) return;
+    
+    setActiveReactionMsg(null);
+    
+    const { addReaction } = await import("@/lib/appwrite");
+    await addReaction(activeReactionMsg.message, user.$id, emoji);
+  };
 
   useEffect(() => {
     const handleFirstLoad = async () => {
@@ -36,7 +80,7 @@ const Chat = () => {
 
         if (partnerDoc?.pairId) {
           const messageDocs = await getMessages(partnerDoc.pairId);
-          setMessages(messageDocs);
+          setMessages(messageDocs.filter((m) => m.senderId));
         }
       } catch (err) {
         console.log(err);
@@ -48,6 +92,7 @@ const Chat = () => {
     handleFirstLoad();
   }, []);
 
+  // Read receipts
   useEffect(() => {
     if (!user) return;
     markMessagesRead(messages, user.$id);
@@ -57,33 +102,35 @@ const Chat = () => {
     if (!partner?.pairId || !user) return;
     const channel = `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.messageCollectionId}.documents`;
 
-    const unsub = client.subscribe(channel, async (event) => {
-      if (!event.events.some((e) => e.endsWith(".create"))) return;
+    const unsub = client.subscribe(channel, (event) => {
+      if (
+        !event.events.some(
+          (e) => e.endsWith(".create") || e.endsWith(".update"),
+        )
+      )
+        return;
 
       const msg = event.payload as MessageDocument;
 
       if (msg.conversationId !== partner.pairId) return;
 
-      const normalized = {
-        ...msg,
-        senderId:
-          typeof msg.senderId === "string" ? msg.senderId : msg.senderId?.$id!,
-      };
+      setMessages((prev) => {
+        const existingMsg = prev.find((m) => m.$id === msg.$id);
 
-      setMessages((prev) => [...prev, normalized]);
+        const normalized = {
+          ...msg,
+          senderId:
+            typeof msg.senderId === "string"
+              ? msg.senderId
+              : msg.senderId?.$id
+                ? msg.senderId.$id
+                : (existingMsg?.senderId ?? ""),
+        };
 
-      // mark delivered if partner message
-      if (msg.senderId !== user.$id && !msg.deliveredAt) {
-        await databases.updateDocument(
-          appwriteConfig.databaseId,
-          appwriteConfig.messageCollectionId,
-          msg.$id,
-          {
-            deliveredAt: new Date().toISOString(),
-            status: "delivered",
-          },
-        );
-      }
+        return prev.some((m) => m.$id === normalized.$id)
+          ? prev.map((m) => (m.$id === normalized.$id ? normalized : m))
+          : [...prev, normalized];
+      });
     });
 
     return () => unsub();
@@ -115,19 +162,31 @@ const Chat = () => {
         <LegendList
           data={messages}
           renderItem={({ item }) => {
-            const mine = getSenderId(item) === user?.$id;
+            const sender = getSenderId(item);
+            if (!sender || !user) return null;
             return (
               <ChatBubble
-                mine={mine}
+                mine={sender === user.$id}
+                message={item}
                 text={item.text}
+                myUserId={user.$id}
                 replyPreview={item.replyPreview}
                 onReplySwipe={() => setReplyingTo(item)}
+                onLongPress={(position: { x: number; y: number }) => {
+                  setActiveReactionMsg({
+                    message: item,
+                    position,
+                    mine: sender === user.$id,
+                  });
+                }}
+                isShowingReactions={activeReactionMsg?.message.$id === item.$id}
               />
             );
           }}
-          keyExtractor={(item) =>
-            `${item.$id}-${item.senderId === user?.$id ? "me" : "them"}`
-          }
+          keyExtractor={(item) => {
+            const sid = getSenderId(item);
+            return `${item.$id}-${sid === user?.$id ? "me" : "them"}`;
+          }}
           contentContainerStyle={{ padding: 12 }}
           recycleItems={false}
           initialScrollIndex={messages.length - 1}
@@ -145,6 +204,42 @@ const Chat = () => {
             replyingTo={replyingTo}
             clearReply={() => setReplyingTo(null)}
           />
+        )}
+
+        {/* Global Emoji Picker Overlay */}
+        {activeReactionMsg && (
+          <>
+            <Pressable
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "transparent",
+              }}
+              onPress={() => setActiveReactionMsg(null)}
+            />
+            <Animated.View
+              style={{
+                position: "absolute",
+                top: activeReactionMsg.position.y - 60,
+                left: activeReactionMsg.mine ? undefined : activeReactionMsg.position.x,
+                right: activeReactionMsg.mine ? 20 : undefined,
+                transform: [{ scale: scaleAnim }],
+                opacity: scaleAnim,
+                zIndex: 10000,
+                elevation: 10000,
+              }}
+              className="flex-row bg-white rounded-full px-3 py-2 gap-2 shadow-lg"
+            >
+              {EMOJIS.map((e) => (
+                <Pressable key={e} onPress={() => handleReact(e)}>
+                  <Text className="text-lg">{e}</Text>
+                </Pressable>
+              ))}
+            </Animated.View>
+          </>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
