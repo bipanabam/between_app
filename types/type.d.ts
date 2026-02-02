@@ -37,8 +37,16 @@ export interface PairInviteDocument extends Models.Document {
 
 export interface MessageDocument extends Models.Document {
   conversationId: string;
-  senderId: string;
+  senderId: string | { $id: string };
   text: string | null;
   type: "text" | "image" | "audio";
   status: "sent" | "delivered" | "read";
+
+  replyToId?: string | null;
+  replyPreview?: string | null;
+
+  readAt: datetime | null;
+  deliveredAt: datetime | null;
+
+  reactions?: string | null; // userId → emoji
 }

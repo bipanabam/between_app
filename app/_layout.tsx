@@ -1,6 +1,9 @@
+import "react-native-gesture-handler";
+
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "./global.css";
 
 function RootLayoutNav() {
@@ -55,8 +58,10 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <RootLayoutNav />
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <RootLayoutNav />
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

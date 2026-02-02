@@ -407,10 +407,12 @@ export const sendMessage = async ({
   pairId,
   text,
   type = "text",
+  replyTo,
 }: {
   pairId: string;
   text: string;
   type?: "text" | "image" | "audio" | "system";
+  replyTo?: MessageDocument | null;
 }) => {
   const accountInfo = await account.get();
   const senderId = accountInfo.$id;
@@ -431,11 +433,65 @@ export const sendMessage = async ({
       text,
       type,
       status: "sent",
+      replyToId: replyTo?.$id ?? null,
+      replyPreview: replyTo?.text?.slice(0, 80) ?? null,
     },
     [
       // Permission.read(Role.users()),
       Permission.update(Role.user(senderId)),
       // Permission.delete(Role.user(senderId)),
     ],
+  );
+};
+
+export const addReaction = async (
+  message: MessageDocument,
+  userId: string,
+  emoji: string,
+) => {
+  let reactions: Record<string, string> = {};
+
+  try {
+    if (message.reactions) {
+      reactions = JSON.parse(message.reactions);
+    }
+  } catch {
+    reactions = {};
+  }
+
+  reactions[userId] = emoji;
+
+  await databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.messageCollectionId,
+    message.$id,
+    {
+      reactions: JSON.stringify(reactions),
+    },
+  );
+};
+
+export const markMessagesRead = async (
+  msgs: MessageDocument[],
+  myId: string,
+) => {
+  const unread = msgs.filter((m) => m.senderId !== myId && !m.readAt);
+
+  if (unread.length === 0) return;
+
+  const now = new Date().toISOString();
+
+  await Promise.all(
+    unread.map((m) =>
+      databases.updateDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.messageCollectionId,
+        m.$id,
+        {
+          readAt: now,
+          status: "read",
+        },
+      ),
+    ),
   );
 };

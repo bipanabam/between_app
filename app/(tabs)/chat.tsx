@@ -4,9 +4,11 @@ import ChatInput from "@/components/ChatInput";
 import {
   appwriteConfig,
   client,
+  databases,
   getMessages,
   getPartner,
   getUser,
+  markMessagesRead,
 } from "@/lib/appwrite";
 import { MessageDocument } from "@/types/type";
 import { LegendList } from "@legendapp/list";
@@ -18,7 +20,10 @@ const Chat = () => {
   const [partner, setPartner] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
   const [messages, setMessages] = useState<MessageDocument[]>([]);
+  const [replyingTo, setReplyingTo] = useState<MessageDocument | null>(null);
   const [isloading, setIsLoading] = useState(false);
+  const getSenderId = (m: MessageDocument) =>
+    typeof m.senderId === "string" ? m.senderId : m.senderId.$id;
 
   useEffect(() => {
     const handleFirstLoad = async () => {
@@ -44,21 +49,45 @@ const Chat = () => {
   }, []);
 
   useEffect(() => {
-    if (!partner?.pairId) return;
+    if (!user) return;
+    markMessagesRead(messages, user.$id);
+  }, [messages, user]);
+
+  useEffect(() => {
+    if (!partner?.pairId || !user) return;
     const channel = `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.messageCollectionId}.documents`;
 
-    const unsub = client.subscribe(channel, (event) => {
+    const unsub = client.subscribe(channel, async (event) => {
       if (!event.events.some((e) => e.endsWith(".create"))) return;
 
       const msg = event.payload as MessageDocument;
 
-      if (msg.conversationId === partner.pairId) {
-        setMessages((prev) => [...prev, msg]);
+      if (msg.conversationId !== partner.pairId) return;
+
+      const normalized = {
+        ...msg,
+        senderId:
+          typeof msg.senderId === "string" ? msg.senderId : msg.senderId?.$id!,
+      };
+
+      setMessages((prev) => [...prev, normalized]);
+
+      // mark delivered if partner message
+      if (msg.senderId !== user.$id && !msg.deliveredAt) {
+        await databases.updateDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.messageCollectionId,
+          msg.$id,
+          {
+            deliveredAt: new Date().toISOString(),
+            status: "delivered",
+          },
+        );
       }
     });
 
     return () => unsub();
-  }, [partner?.pairId]);
+  }, [partner?.pairId, user]);
 
   if (isloading) {
     return (
@@ -86,13 +115,21 @@ const Chat = () => {
         <LegendList
           data={messages}
           renderItem={({ item }) => {
-            const mine = item.senderId === user?.$id;
-
-            return <ChatBubble mine={mine} text={item.text ?? ""} />; // partner = left, me = right
+            const mine = getSenderId(item) === user?.$id;
+            return (
+              <ChatBubble
+                mine={mine}
+                text={item.text}
+                replyPreview={item.replyPreview}
+                onReplySwipe={() => setReplyingTo(item)}
+              />
+            );
           }}
-          keyExtractor={(item) => item?.$id ?? "unknown"}
+          keyExtractor={(item) =>
+            `${item.$id}-${item.senderId === user?.$id ? "me" : "them"}`
+          }
           contentContainerStyle={{ padding: 12 }}
-          recycleItems={true}
+          recycleItems={false}
           initialScrollIndex={messages.length - 1}
           alignItemsAtEnd
           maintainScrollAtEnd
@@ -102,7 +139,13 @@ const Chat = () => {
         />
 
         {/* Input */}
-        {partner?.pairId && <ChatInput pairId={partner.pairId} />}
+        {partner?.pairId && (
+          <ChatInput
+            pairId={partner.pairId}
+            replyingTo={replyingTo}
+            clearReply={() => setReplyingTo(null)}
+          />
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
