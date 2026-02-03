@@ -449,36 +449,52 @@ export const addReaction = async (
   userId: string,
   emoji: string,
 ) => {
-  const fresh = await databases.getDocument<MessageDocument>(
-    appwriteConfig.databaseId,
-    appwriteConfig.messageCollectionId,
-    message.$id,
-  );
+  let retries = 3;
 
-  let reactions: Record<string, string> = {};
+  while (retries > 0) {
+    try {
+      const fresh = await databases.getDocument<MessageDocument>(
+        appwriteConfig.databaseId,
+        appwriteConfig.messageCollectionId,
+        message.$id,
+      );
 
-  try {
-    if (fresh.reactions) {
-      reactions = JSON.parse(fresh.reactions);
+      let reactions: Record<string, string> = {};
+
+      try {
+        if (fresh.reactions) {
+          reactions = JSON.parse(fresh.reactions);
+        }
+      } catch (e) {
+        reactions = {};
+      }
+
+      // toggle/modify
+      if (reactions[userId] === emoji) {
+        delete reactions[userId];
+      } else {
+        reactions[userId] = emoji;
+      }
+
+      // update
+      await databases.updateDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.messageCollectionId,
+        message.$id,
+        {
+          reactions: JSON.stringify(reactions),
+        },
+      );
+      return reactions;
+    } catch (error: any) {
+      if (error.code === 409) {
+        // Conflict code
+        retries--;
+        continue;
+      }
+      throw error;
     }
-  } catch {}
-
-  // toggle
-  if (reactions[userId] === emoji) {
-    delete reactions[userId];
-  } else {
-    reactions[userId] = emoji;
   }
-
-  await databases.updateDocument(
-    appwriteConfig.databaseId,
-    appwriteConfig.messageCollectionId,
-    message.$id,
-    {
-      reactions: JSON.stringify(reactions),
-    },
-  );
-  return reactions;
 };
 
 export const markMessagesRead = async (

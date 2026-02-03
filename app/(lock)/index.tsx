@@ -5,20 +5,21 @@ import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { Delete, Shield } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    Text,
-    View,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Index = () => {
   const [code, setCode] = useState("");
   const { user, unlockApp } = useAuth();
+  const [error, setError] = useState(false);
   const router = useRouter();
 
   const haptic = () => {
@@ -46,14 +47,58 @@ const Index = () => {
     if (hash === storedHash) {
       await unlockApp();
     } else {
-      Alert.alert("Wrong passcode");
-      setCode("");
+      triggerShake();
+      setError(true);
+      // Delay the reset slightly so the user sees the 4th dot fill before it shakes/clears
+      setTimeout(() => {
+        setCode("");
+      }, 200);
+      return;
     }
   };
 
   useEffect(() => {
     if (code.length === 4) verify();
   }, [code]);
+
+  // Clear error state when user starts re-typing
+  useEffect(() => {
+    if (code.length > 0 && error) {
+      setError(false);
+    }
+  }, [code]);
+
+  // Initialize the shake value
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  const triggerShake = () => {
+    // Trigger error haptic
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+    //shake sequence
+    Animated.sequence([
+      Animated.timing(shakeAnim, {
+        toValue: 10,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: -10,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 10,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 0,
+        duration: 50,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -68,16 +113,34 @@ const Index = () => {
             </View>
 
             <Text className="text-2xl font-medium">Welcome back</Text>
-            <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
+            {/* <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
               Enter your passcode
-            </Text>
+            </Text> */}
+            {/* Instruction or error message */}
+            <View className="h-6 items-center justify-center mt-3">
+              {error ? (
+                <Text className="text-red-500 text-sm font-medium">
+                  Incorrect passcode. Please try again.
+                </Text>
+              ) : (
+                <Text className="text-sm text-center text-mutedForeground leading-5">
+                  Enter your passcode
+                </Text>
+              )}
+            </View>
 
             {/* Dots */}
-            <View className="flex-row my-9">
+            <Animated.View
+              style={{
+                flexDirection: "row",
+                marginVertical: 32,
+                transform: [{ translateX: shakeAnim }],
+              }}
+            >
               {[0, 1, 2, 3].map((i) => (
                 <PasscodeDot key={i} filled={code.length > i} />
               ))}
-            </View>
+            </Animated.View>
 
             {/* Numpad */}
             <View className="flex-row flex-wrap justify-center w-full px-4 gap-3">

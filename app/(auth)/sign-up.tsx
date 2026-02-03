@@ -17,8 +17,8 @@ import {
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -47,6 +47,10 @@ const SignUp = () => {
   const [confirmPasscode, setConfirmPasscode] = useState("");
   const [nickname, setNickname] = useState("");
   const router = useRouter();
+  const triggerSuccess = () =>
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const triggerError = () =>
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
   const haptic = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -72,6 +76,26 @@ const SignUp = () => {
     restoreStep();
   }, [isAuthenticated]);
 
+  // on hardware/device back press
+  useEffect(() => {
+    const backAction = () => {
+      if (step === "passcode") {
+        setStep("emailSent");
+        return true;
+      }
+      if (step === "nickname") {
+        setStep("passcode");
+        return true;
+      }
+      return false; // let default behavior happen
+    };
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction,
+    );
+    return () => backHandler.remove();
+  }, [step]);
+
   // Persist step whenever it changes
   useEffect(() => {
     const setSignupStep = async () => {
@@ -81,11 +105,11 @@ const SignUp = () => {
   }, [step]);
 
   // Auto Submit When 6 Digits Entered
-  // useEffect(() => {
-  //   if (!verifying && otp.length === 6) {
-  //     handleVerifyOtp();
-  //   }
-  // }, [otp]);
+  useEffect(() => {
+    if (otp.length === 6 && !verifying) {
+      handleVerifyOtp();
+    }
+  }, [otp]);
 
   const handleSendOtp = async () => {
     if (!email.includes("@")) {
@@ -95,8 +119,10 @@ const SignUp = () => {
 
     try {
       await requestOtp(email);
+      triggerSuccess();
       setStep("emailSent");
     } catch {
+      triggerError();
       Alert.alert("Failed to send code. Try again.");
     }
   };
@@ -114,9 +140,11 @@ const SignUp = () => {
     try {
       await verifyOtp(otp);
       await refreshUser();
+      triggerSuccess();
       setOtp("");
       setStep("passcode");
     } catch (e) {
+      triggerError();
       console.log("VERIFY ERROR", e);
       Alert.alert("Invalid code. Try again.");
     } finally {
@@ -152,6 +180,7 @@ const SignUp = () => {
 
     if (next.length === 4) {
       if (next !== passcode) {
+        triggerError();
         Alert.alert("Passcodes didn't match. Try again.");
         setPasscode("");
         setConfirmPasscode("");
@@ -179,9 +208,11 @@ const SignUp = () => {
       });
       setStep("complete");
       await refreshUser();
+      triggerSuccess();
       await SecureStore.deleteItemAsync("signup_step");
     } catch (e) {
       // console.log(e);
+      triggerError();
       Alert.alert("Something went wrong. Please try again.");
     }
   };
@@ -276,7 +307,7 @@ const SignUp = () => {
                   maxLength={6}
                 />
 
-                <Pressable
+                {/* <Pressable
                   onPress={handleVerifyOtp}
                   disabled={otp.length !== 6 || verifying}
                   className="h-16 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
@@ -296,7 +327,7 @@ const SignUp = () => {
                       <ArrowRight size={15} color="white" />
                     </>
                   )}
-                </Pressable>
+                </Pressable> */}
 
                 {/* Resend */}
                 <Pressable onPress={handleSendOtp} className="mt-6">

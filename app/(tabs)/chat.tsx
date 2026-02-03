@@ -7,12 +7,22 @@ import {
   getMessages,
   getPartner,
   getUser,
-  markMessagesRead
+  markMessagesRead,
 } from "@/lib/appwrite";
 import { MessageDocument } from "@/types/type";
+import { formatChatDate } from "@/utility/formatChatDate";
 import { LegendList } from "@legendapp/list";
+import dayjs from "dayjs";
+import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, KeyboardAvoidingView, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Animated,
+  KeyboardAvoidingView,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const EMOJIS = ["❤️", "🤍", "🥰", "🥹", "🌸", "✨", "🫶", "🫂", "💌"];
@@ -23,12 +33,13 @@ const Chat = () => {
   const [messages, setMessages] = useState<MessageDocument[]>([]);
   const [replyingTo, setReplyingTo] = useState<MessageDocument | null>(null);
   const [isloading, setIsLoading] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [activeReactionMsg, setActiveReactionMsg] = useState<{
     message: MessageDocument;
     position: { x: number; y: number };
     mine: boolean;
   } | null>(null);
-  
+
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
   const getSenderId = (m: MessageDocument) => {
@@ -62,11 +73,48 @@ const Chat = () => {
 
   const handleReact = async (emoji: string) => {
     if (!activeReactionMsg || !user) return;
-    
+
+    const targetId = activeReactionMsg.message.$id;
     setActiveReactionMsg(null);
-    
-    const { addReaction } = await import("@/lib/appwrite");
-    await addReaction(activeReactionMsg.message, user.$id, emoji);
+
+    // Optimistic Update: Update UI immediately
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.$id === targetId) {
+          let currentReactions: Record<string, string> = {};
+          // Parse current reactions safely
+          try {
+            currentReactions = m.reactions ? JSON.parse(m.reactions) : {};
+          } catch (e) {
+            currentReactions = {};
+          }
+          // toggle logic if same emoji exists
+          if (currentReactions[user.$id] === emoji) {
+            setIsRemoving(true);
+            delete currentReactions[user.$id];
+          } else {
+            currentReactions[user.$id] = emoji;
+          }
+          // Return updated message with stringified reactions
+          return { ...m, reactions: JSON.stringify(currentReactions) };
+        }
+        return m;
+      }),
+    );
+
+    try {
+      const { addReaction } = await import("@/lib/appwrite");
+      if (isRemoving) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setIsRemoving(false);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      await addReaction(activeReactionMsg.message, user.$id, emoji);
+    } catch (error) {
+      // Rollback logic (refetch messages)
+      console.error("Failed to react", error);
+    }
   };
 
   useEffect(() => {
@@ -161,26 +209,46 @@ const Chat = () => {
         {/* Messages */}
         <LegendList
           data={messages}
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const sender = getSenderId(item);
             if (!sender || !user) return null;
+            // logic for date header
+            const showDateHeader =
+              index === 0 ||
+              dayjs(item.$createdAt).diff(
+                dayjs(messages[index - 1].$createdAt),
+                "minute",
+              ) > 60;
             return (
-              <ChatBubble
-                mine={sender === user.$id}
-                message={item}
-                text={item.text}
-                myUserId={user.$id}
-                replyPreview={item.replyPreview}
-                onReplySwipe={() => setReplyingTo(item)}
-                onLongPress={(position: { x: number; y: number }) => {
-                  setActiveReactionMsg({
-                    message: item,
-                    position,
-                    mine: sender === user.$id,
-                  });
-                }}
-                isShowingReactions={activeReactionMsg?.message.$id === item.$id}
-              />
+              <View>
+                {showDateHeader && (
+                  <View className="items-center my-4">
+                    <View className="bg-muted/30 px-3 py-1 rounded-full">
+                      <Text className="text-xs text-mutedForeground font-medium uppercase tracking-wider">
+                        {formatChatDate(item.$createdAt)}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                <ChatBubble
+                  mine={sender === user.$id}
+                  message={item}
+                  text={item.text}
+                  myUserId={user.$id}
+                  replyPreview={item.replyPreview}
+                  onReplySwipe={() => setReplyingTo(item)}
+                  onLongPress={(position: { x: number; y: number }) => {
+                    setActiveReactionMsg({
+                      message: item,
+                      position,
+                      mine: sender === user.$id,
+                    });
+                  }}
+                  isShowingReactions={
+                    activeReactionMsg?.message.$id === item.$id
+                  }
+                />
+              </View>
             );
           }}
           keyExtractor={(item) => {
@@ -224,7 +292,9 @@ const Chat = () => {
               style={{
                 position: "absolute",
                 top: activeReactionMsg.position.y - 60,
-                left: activeReactionMsg.mine ? undefined : activeReactionMsg.position.x,
+                left: activeReactionMsg.mine
+                  ? undefined
+                  : activeReactionMsg.position.x,
                 right: activeReactionMsg.mine ? 20 : undefined,
                 transform: [{ scale: scaleAnim }],
                 opacity: scaleAnim,
