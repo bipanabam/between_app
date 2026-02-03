@@ -1,3 +1,4 @@
+import FooterDots from "@/components/FooterDots";
 import HeartLoader from "@/components/HearLoader";
 import NumPad from "@/components/NumPad";
 import PasscodeDot from "@/components/PasscodeDot";
@@ -29,6 +30,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const FOOTER_STEPS = ["email", "passcode", "nickname"];
 
 type Step =
   | "email"
@@ -490,15 +493,7 @@ const SignUp = () => {
         </View>
 
         {/* Footer Pagination Dots */}
-        <View className="flex-row justify-center pb-12">
-          <View
-            className={`h-2 w-3 rounded-full mx-1 ${step === "email" ? "bg-primary w-7" : "bg-muted"}`}
-          />
-          <View
-            className={`h-2 w-3 rounded-full mx-1 ${step === "passcode" ? "bg-primary w-7" : "bg-muted"}`}
-          />
-          <View className={`h-2 w-3 rounded-full mx-1 bg-muted`} />
-        </View>
+        <FooterDots steps={FOOTER_STEPS} current={step} />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
