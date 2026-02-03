@@ -1,6 +1,7 @@
 import ChatBubble from "@/components/ChatBubble";
 import ChatHeader from "@/components/ChatHeader";
 import ChatInput from "@/components/ChatInput";
+import HeartLoader from "@/components/HearLoader";
 import {
   appwriteConfig,
   client,
@@ -16,12 +17,11 @@ import dayjs from "dayjs";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
   Pressable,
   Text,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -187,7 +187,7 @@ const Chat = () => {
   if (isloading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator />
+        <HeartLoader />
       </View>
     );
   }

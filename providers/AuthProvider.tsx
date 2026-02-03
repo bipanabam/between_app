@@ -5,6 +5,7 @@ import {
 } from "@/lib/appwrite";
 import { PairDocument, UserDocument } from "@/types/type";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { AppState } from "react-native";
 
@@ -81,8 +82,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const unlockApp = async () => {
     setIsLocked(false);
   };
-  // const lockApp = () => setIsLocked(true);
-  // const unlockApp = () => setIsLocked(false);
 
   const bootstrap = async () => {
     try {
@@ -92,13 +91,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(userDoc as UserDocument);
       setIsAuthenticated(true);
 
+      // preload passcode hash locally
+      if (userDoc.passcodeHash) {
+        await SecureStore.setItemAsync(
+          "between_passcode_hash",
+          userDoc.passcodeHash,
+        );
+        setIsLocked(true);
+      }
+
       const pairDoc = await ensurePairDocument();
       if (pairDoc) {
         setPair(pairDoc as PairDocument);
-      }
-
-      if (userDoc.passcodeHash) {
-        setIsLocked(true);
       }
     } catch {
       setUser(null);
@@ -112,6 +116,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshUser = async () => {
     const userDoc = await ensureUserDocument();
     setUser(userDoc as UserDocument);
+    // keep SecureStore synced
+    if (userDoc.passcodeHash) {
+      await SecureStore.setItemAsync(
+        "between_passcode_hash",
+        userDoc.passcodeHash,
+      );
+    }
   };
 
   useEffect(() => {

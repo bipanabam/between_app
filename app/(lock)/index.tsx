@@ -7,6 +7,7 @@ import * as SecureStore from "expo-secure-store";
 import { Delete, Shield } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -17,8 +18,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Index = () => {
+  const { user, unlockApp, loading } = useAuth();
   const [code, setCode] = useState("");
-  const { user, unlockApp } = useAuth();
   const [error, setError] = useState(false);
   const router = useRouter();
 
@@ -40,9 +41,10 @@ const Index = () => {
   const verify = async () => {
     const hash = await hashPasscode(code);
     let storedHash = await SecureStore.getItemAsync("between_passcode_hash");
-
     if (!storedHash) {
-      storedHash = user?.passcodeHash ?? null;
+      Alert.alert("Not ready yet — please try again");
+      setCode("");
+      return;
     }
     if (hash === storedHash) {
       await unlockApp();
@@ -58,8 +60,10 @@ const Index = () => {
   };
 
   useEffect(() => {
-    if (code.length === 4) verify();
-  }, [code]);
+    if (code.length === 4 && !loading && user) {
+      verify();
+    }
+  }, [code, loading, user]);
 
   // Clear error state when user starts re-typing
   useEffect(() => {
@@ -113,9 +117,6 @@ const Index = () => {
             </View>
 
             <Text className="text-2xl font-medium">Welcome back</Text>
-            {/* <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
-              Enter your passcode
-            </Text> */}
             {/* Instruction or error message */}
             <View className="h-6 items-center justify-center mt-3">
               {error ? (
@@ -179,7 +180,22 @@ const Index = () => {
               ))}
             </View>
 
-            <Pressable className="mt-6">
+            <Pressable
+              className="mt-6"
+              onPress={() => {
+                Alert.alert(
+                  "Reset passcode?",
+                  "You'll need to verify your email.",
+                  [
+                    { text: "Cancel" },
+                    {
+                      text: "Continue",
+                      onPress: () => router.push("/(reset)"),
+                    },
+                  ],
+                );
+              }}
+            >
               <Text className="text-mutedForeground/70 text-sm">
                 Forgot your passcode? We can help.
               </Text>

@@ -53,18 +53,22 @@ export const requestOtp = async (email: string) => {
   // await SecureStore.setItemAsync("otp_secret", token.secret);
 };
 
-export const verifyOtp = async (otp: string) => {
+export const verifyOtp = async (otp: string, reset?: boolean) => {
   const userId = await SecureStore.getItemAsync("otp_user_id");
+  const resetState = reset ?? false;
 
   if (!userId || !otp) throw new Error("Missing token data");
   try {
-    await account.createSession(userId, otp);
+    if (!resetState) {
+      await account.createSession(userId, otp);
+    }
 
     await SecureStore.deleteItemAsync("otp_user_id");
     await SecureStore.deleteItemAsync("otp_secret");
 
     return await ensureUserDocument();
   } catch (e) {
+    console.log(e);
     throw new Error("Error validating otp.");
   }
 };

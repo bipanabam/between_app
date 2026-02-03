@@ -247,7 +247,7 @@ const SignUp = () => {
 
                 <Text className="text-2xl font-medium">Enter your email</Text>
                 <Text className="text-sm text-center text-mutedForeground mt-3 leading-5">
-                  We'll send you a magic link to sign in.{"\n"}No passwords to
+                  We'll send you an OTP to sign in.{"\n"}No passwords to
                   remember.
                 </Text>
 

@@ -17,6 +17,7 @@ function RootLayoutNav() {
     const inAuth = segments[0] === "(auth)";
     const inPairing = segments[0] === "(pairing)";
     const inLock = segments[0] === "(lock)";
+    const inReset = segments[0] === "(reset)";
     const inTabs = segments[0] === "(tabs)";
 
     switch (status) {
@@ -40,7 +41,7 @@ function RootLayoutNav() {
         break;
 
       case "locked":
-        if (!inLock) {
+        if (!inLock && !inReset) {
           router.replace("/(lock)");
         }
         break;

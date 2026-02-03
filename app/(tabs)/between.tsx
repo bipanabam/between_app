@@ -1,3 +1,4 @@
+import HeartLoader from "@/components/HearLoader";
 import PartnerCard from "@/components/PartnerCard";
 import { ensureUserDocument, getPartner } from "@/lib/appwrite";
 import { Heart } from "lucide-react-native";
@@ -23,7 +24,11 @@ const Between = () => {
   }, []);
 
   if (!me || !partner) {
-    return null;
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <HeartLoader />
+      </View>
+    );
   }
 
   return (
