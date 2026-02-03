@@ -1,3 +1,5 @@
+import HeartLoader from "@/components/HearLoader";
+import NumPad from "@/components/NumPad";
 import PasscodeDot from "@/components/PasscodeDot";
 import StepWrapper from "@/components/StepWrapper";
 import { requestOtp, updateUser, verifyOtp } from "@/lib/appwrite";
@@ -9,7 +11,6 @@ import * as SecureStore from "expo-secure-store";
 import {
   ArrowRight,
   Check,
-  Delete,
   Heart,
   Lock,
   Mail,
@@ -46,7 +47,9 @@ const SignUp = () => {
   const [passcode, setPasscode] = useState("");
   const [confirmPasscode, setConfirmPasscode] = useState("");
   const [nickname, setNickname] = useState("");
+  const [completingOnboarding, setCompletingOnboarding] = useState(false);
   const router = useRouter();
+
   const triggerSuccess = () =>
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   const triggerError = () =>
@@ -56,11 +59,12 @@ const SignUp = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  // Skip entire signup if fully onboarded
   useEffect(() => {
-    if (!loading && isAuthenticated && step === "emailSent") {
-      setStep("passcode");
+    if (!loading && isAuthenticated && user?.passcodeHash && user?.nickname) {
+      router.replace("/(tabs)/between");
     }
-  }, [loading, isAuthenticated, step]);
+  }, [loading, isAuthenticated, user, step]);
 
   // Restore step when screen loads
   useEffect(() => {
@@ -76,6 +80,16 @@ const SignUp = () => {
     restoreStep();
   }, [isAuthenticated]);
 
+  // Persist step whenever it changes
+  useEffect(() => {
+    const saveStep = async () => {
+      try {
+        await SecureStore.setItemAsync("signup_step", step);
+      } catch {}
+    };
+    saveStep();
+  }, [step]);
+
   // on hardware/device back press
   useEffect(() => {
     const backAction = () => {
@@ -87,6 +101,10 @@ const SignUp = () => {
         setStep("passcode");
         return true;
       }
+      if (step === "confirmPasscode") {
+        setStep("passcode");
+        return true;
+      }
       return false; // let default behavior happen
     };
     const backHandler = BackHandler.addEventListener(
@@ -94,14 +112,6 @@ const SignUp = () => {
       backAction,
     );
     return () => backHandler.remove();
-  }, [step]);
-
-  // Persist step whenever it changes
-  useEffect(() => {
-    const setSignupStep = async () => {
-      await SecureStore.setItemAsync("signup_step", step);
-    };
-    setSignupStep();
   }, [step]);
 
   // Auto Submit When 6 Digits Entered
@@ -139,6 +149,8 @@ const SignUp = () => {
 
     try {
       await verifyOtp(otp);
+      // mark OTP verified time
+      await SecureStore.setItemAsync("otp_verified_at", Date.now().toString());
       await refreshUser();
       triggerSuccess();
       setOtp("");
@@ -198,6 +210,7 @@ const SignUp = () => {
     }
 
     try {
+      setCompletingOnboarding(true);
       const hash = await hashPasscode(passcode);
 
       await SecureStore.setItemAsync("between_passcode_hash", hash);
@@ -206,16 +219,26 @@ const SignUp = () => {
         passcodeHash: hash,
         nickname,
       });
-      setStep("complete");
       await refreshUser();
+      setStep("complete");
       triggerSuccess();
       await SecureStore.deleteItemAsync("signup_step");
     } catch (e) {
       // console.log(e);
       triggerError();
       Alert.alert("Something went wrong. Please try again.");
+    } finally {
+      setCompletingOnboarding(false);
     }
   };
+
+  if (completingOnboarding) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <HeartLoader />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -362,41 +385,10 @@ const SignUp = () => {
               </View>
 
               {/* Numpad */}
-              <View className="flex-row flex-wrap justify-center w-full px-4 gap-3">
-                {[
-                  "1",
-                  "2",
-                  "3",
-                  "4",
-                  "5",
-                  "6",
-                  "7",
-                  "8",
-                  "9",
-                  "",
-                  "0",
-                  "delete",
-                ].map((v, i) => (
-                  <Pressable
-                    key={i}
-                    className="w-1/4 h-16 items-center justify-center rounded-2xl bg-muted"
-                    onPress={() => {
-                      haptic();
-                      v === "delete"
-                        ? handleBackspace()
-                        : v && handlePasscodePress(v);
-                    }}
-                  >
-                    {v === "delete" ? (
-                      <Delete size={24} color="#5E5851" />
-                    ) : (
-                      <Text className="text-2xl text-foreground font-semibold">
-                        {v}
-                      </Text>
-                    )}
-                  </Pressable>
-                ))}
-              </View>
+              <NumPad
+                onDigit={handlePasscodePress}
+                onDelete={handleBackspace}
+              />
 
               <Pressable className="mt-6">
                 <Text className="text-mutedForeground/70 text-sm">
@@ -429,41 +421,10 @@ const SignUp = () => {
                 </View>
 
                 {/* Numpad */}
-                <View className="flex-row flex-wrap justify-center w-full px-4 gap-3">
-                  {[
-                    "1",
-                    "2",
-                    "3",
-                    "4",
-                    "5",
-                    "6",
-                    "7",
-                    "8",
-                    "9",
-                    "",
-                    "0",
-                    "delete",
-                  ].map((v, i) => (
-                    <Pressable
-                      key={i}
-                      className="w-1/4 h-16 items-center justify-center rounded-2xl bg-muted"
-                      onPress={() => {
-                        haptic();
-                        v === "delete"
-                          ? handleBackspace()
-                          : v && handleConfirmPasscodePress(v);
-                      }}
-                    >
-                      {v === "delete" ? (
-                        <Delete size={24} color="#5E5851" />
-                      ) : (
-                        <Text className="text-2xl text-foreground font-semibold">
-                          {v}
-                        </Text>
-                      )}
-                    </Pressable>
-                  ))}
-                </View>
+                <NumPad
+                  onDigit={handleConfirmPasscodePress}
+                  onDelete={handleBackspace}
+                />
 
                 <Pressable className="mt-6">
                   <Text className="text-mutedForeground/70 text-sm">

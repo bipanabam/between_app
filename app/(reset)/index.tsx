@@ -1,3 +1,4 @@
+import HeartLoader from "@/components/HearLoader";
 import PasscodeDot from "@/components/PasscodeDot";
 import StepWrapper from "@/components/StepWrapper";
 import { requestOtp, updateUser, verifyOtp } from "@/lib/appwrite";
@@ -11,14 +12,7 @@ import { hashPasscode } from "@/types/helpers";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import {
-    ArrowRight,
-    Check,
-    Delete,
-    Heart,
-    Lock,
-    Mail,
-} from "lucide-react-native";
+import { ArrowRight, Delete, Heart, Lock, Mail } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -32,7 +26,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type Step = "email" | "emailSent" | "passcode" | "confirmPasscode" | "complete";
+type Step = "email" | "emailSent" | "passcode" | "confirmPasscode";
 
 export default function ResetPasscode() {
   const { refreshUser, unlockApp } = useAuth();
@@ -57,13 +51,29 @@ export default function ResetPasscode() {
   const error = () =>
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
+  const isRecentOtp = async () => {
+    const ts = await SecureStore.getItemAsync("otp_verified_at");
+    if (!ts) return false;
+
+    const age = Date.now() - Number(ts);
+
+    return age < 10 * 60 * 1000; // 10 minutes
+  };
+
   // Restore on Mount
   useEffect(() => {
     (async () => {
+      //check if OTP recently verified
+      const recent = await isRecentOtp();
+      if (recent) {
+        setStep("passcode");
+        return;
+      }
+
+      // fallback to saved flow restore
       const saved = await loadResetFlow();
       if (!saved) return;
 
-      // expire after 10 minutes
       if (Date.now() - saved.ts > 10 * 60 * 1000) {
         await clearResetFlow();
         return;
@@ -114,7 +124,7 @@ export default function ResetPasscode() {
     setVerifying(true);
 
     try {
-      await verifyOtp(otp, true);
+      await verifyOtp(otp);
       await refreshUser();
       success();
       setOtp("");
@@ -179,7 +189,6 @@ export default function ResetPasscode() {
       await updateUser({ passcodeHash: hash });
       await refreshUser();
       success();
-      setStep("complete");
       await clearResetFlow();
       await unlockApp();
     } catch {
@@ -193,7 +202,7 @@ export default function ResetPasscode() {
   if (isFinishing) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator />
+        <HeartLoader />
       </View>
     );
   }
@@ -374,7 +383,7 @@ export default function ResetPasscode() {
             </View>
           )}
 
-          {/* COMPLETE */}
+          {/* COMPLETE
           {step === "complete" && (
             <StepWrapper stepKey={step}>
               <View className="items-center mt-14">
@@ -382,7 +391,7 @@ export default function ResetPasscode() {
                 <Text className="text-xl mt-4">Passcode reset</Text>
               </View>
             </StepWrapper>
-          )}
+          )} */}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

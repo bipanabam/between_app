@@ -123,6 +123,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         userDoc.passcodeHash,
       );
     }
+    // Also refresh pair
+    const pairDoc = await ensurePairDocument();
+    setPair(pairDoc as PairDocument | null);
   };
 
   useEffect(() => {
@@ -139,13 +142,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         nextState === "active"
       ) {
         if (user?.passcodeHash) {
-          lockApp();
-          router.replace("/");
+          setIsLocked(true);
         }
       }
 
       previousState = nextState;
-      console.log("APP STATE CHANGED", previousState, "→", nextState);
+      // console.log("APP STATE CHANGED", previousState, "→", nextState);
     });
 
     return () => sub.remove();

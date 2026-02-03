@@ -1,10 +1,11 @@
+import NumPad from "@/components/NumPad";
 import PasscodeDot from "@/components/PasscodeDot";
 import { useAuth } from "@/providers/AuthProvider";
 import { hashPasscode } from "@/types/helpers";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { Delete, Shield } from "lucide-react-native";
+import { Shield } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -144,41 +145,7 @@ const Index = () => {
             </Animated.View>
 
             {/* Numpad */}
-            <View className="flex-row flex-wrap justify-center w-full px-4 gap-3">
-              {[
-                "1",
-                "2",
-                "3",
-                "4",
-                "5",
-                "6",
-                "7",
-                "8",
-                "9",
-                "",
-                "0",
-                "delete",
-              ].map((v, i) => (
-                <Pressable
-                  key={i}
-                  className="w-1/4 h-16 items-center justify-center rounded-full bg-muted"
-                  onPress={() => {
-                    haptic();
-                    v === "delete"
-                      ? handleBackspace()
-                      : v && handlePasscodePress(v);
-                  }}
-                >
-                  {v === "delete" ? (
-                    <Delete size={24} color="#5E5851" />
-                  ) : (
-                    <Text className="text-2xl text-foreground font-semibold">
-                      {v}
-                    </Text>
-                  )}
-                </Pressable>
-              ))}
-            </View>
+            <NumPad onDigit={handlePasscodePress} onDelete={handleBackspace} />
 
             <Pressable
               className="mt-6"
@@ -197,7 +164,7 @@ const Index = () => {
               }}
             >
               <Text className="text-mutedForeground/70 text-sm">
-                Forgot your passcode? We can help.
+                Forgot your passcode? Reset with email verification.
               </Text>
             </Pressable>
           </View>
