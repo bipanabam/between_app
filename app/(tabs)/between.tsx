@@ -12,11 +12,10 @@ import {
 } from "@/lib/appwrite";
 import {
   Bookmark,
-  Calendar,
   Camera,
   ChevronRight,
   Heart,
-  MessageCircle,
+  MessageCircle
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -103,25 +102,6 @@ const Between = () => {
         </Text>
 
         {/* Together Since */}
-        <View className="bg-card rounded-3xl p-5 mt-8 flex-row items-center justify-between shadow-sm">
-          <View className="flex-row items-center gap-3">
-            <View className="bg-muted p-3 rounded-xl">
-              <Calendar size={18} color="#8a8075" />
-            </View>
-
-            <View>
-              <Text className="text-mutedForeground text-sm">
-                Together since
-              </Text>
-              <Text className="text-foreground font-medium">June 15, 2024</Text>
-            </View>
-          </View>
-
-          <View className="items-end">
-            <Text className="text-primary text-lg font-semibold">598</Text>
-            <Text className="text-mutedForeground text-xs">days</Text>
-          </View>
-        </View>
         <TogetherSinceCard
           pair={pair}
           meId={me.$id}
