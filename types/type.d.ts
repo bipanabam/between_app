@@ -21,6 +21,11 @@ export interface PairDocument extends Models.Document {
 
   createdBy: string;
   isComplete: boolean;
+
+  relationshipStartDate?: datetime | null;
+  relationshipStartDateProposedBy?: string | null;
+  relationshipStartDatePending?: datetime | null;
+  relationshipStartDateConfirmed?: boolean;
 }
 
 export interface PairInviteDocument extends Models.Document {
@@ -49,4 +54,19 @@ export interface MessageDocument extends Models.Document {
   deliveredAt: datetime | null;
 
   reactions?: string | null; // userId → emoji
+}
+
+export interface PairStats extends Models.Document {
+  pairId: string;
+
+  messagesCount: number;
+  photosCount: number;
+  voiceCount: number;
+  reactionsCount: number;
+  savedCount: number;
+
+  firstMessageAt: datetime;
+  lastMessageAt: datetime;
+
+  updatedAt: datetime;
 }

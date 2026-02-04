@@ -341,6 +341,18 @@ export const ensurePairDocument = async () => {
   }
 };
 
+export const getMyPair = async () => {
+  const me = await ensureUserDocument();
+
+  if (!me?.pairId) return null;
+
+  return databases.getDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairCollectionId,
+    me.pairId,
+  );
+};
+
 export const getActiveInvite = async () => {
   const accountInfo = await account.get();
   const userId = accountInfo.$id;
@@ -526,5 +538,34 @@ export const markMessagesRead = async (
         },
       ),
     ),
+  );
+};
+
+export const proposeRelationshipDate = async (
+  pairId: string,
+  date: Date,
+  userId: string,
+) => {
+  return databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairCollectionId,
+    pairId,
+    {
+      relationshipStartDatePending: date,
+      relationshipStartDateProposedBy: userId,
+    },
+  );
+};
+
+export const confirmRelationshipDate = async (pair: PairDocument) => {
+  return databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairCollectionId,
+    pair.$id,
+    {
+      relationshipStartDate: pair.relationshipStartDatePending,
+      relationshipStartDatePending: null,
+      relationshipStartDateConfirmed: true,
+    },
   );
 };

@@ -1,8 +1,15 @@
 import HeartLoader from "@/components/HearLoader";
 import PartnerCard from "@/components/PartnerCard";
 import RotatingMicrocopy from "@/components/RotatingMicrocopy";
+import TogetherSinceCard from "@/components/TogetherSinceCard";
 import { privacyMicrocopy } from "@/constant/privacyMicrocopy";
-import { ensureUserDocument, getPartner } from "@/lib/appwrite";
+import {
+  confirmRelationshipDate,
+  ensureUserDocument,
+  getMyPair,
+  getPartner,
+  proposeRelationshipDate,
+} from "@/lib/appwrite";
 import {
   Bookmark,
   Calendar,
@@ -15,24 +22,44 @@ import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function Between() {
+const Between = () => {
   const [me, setMe] = useState<any>(null);
+  const [pair, setPair] = useState<any>(null);
   const [partner, setPartner] = useState<any>(null);
 
   useEffect(() => {
     const load = async () => {
-      const [meDoc, partnerDoc] = await Promise.all([
+      const [meDoc, partnerDoc, pairDoc] = await Promise.all([
         ensureUserDocument(),
         getPartner(),
+        getMyPair(),
       ]);
+
       setMe(meDoc);
       setPartner(partnerDoc);
+      setPair(pairDoc);
     };
 
     load();
   }, []);
 
-  if (!me || !partner) {
+  const handleProposeDate = async (date: Date) => {
+    if (!pair || !me) return;
+    await proposeRelationshipDate(pair.$id, date, me.$id);
+
+    const updated = await getMyPair();
+    setPair(updated);
+  };
+
+  const handleConfirmDate = async () => {
+    if (!pair) return;
+    await confirmRelationshipDate(pair);
+
+    const updated = await getMyPair();
+    setPair(updated);
+  };
+
+  if (!me || !partner || !pair) {
     return (
       <View className="flex-1 justify-center items-center">
         <HeartLoader />
@@ -95,6 +122,12 @@ export default function Between() {
             <Text className="text-mutedForeground text-xs">days</Text>
           </View>
         </View>
+        <TogetherSinceCard
+          pair={pair}
+          meId={me.$id}
+          onPropose={handleProposeDate}
+          onConfirm={handleConfirmDate}
+        />
 
         {/* Stats */}
         <View className="bg-card rounded-3xl p-6 mt-6 shadow-sm">
@@ -164,9 +197,9 @@ export default function Between() {
       </ScrollView>
     </SafeAreaView>
   );
-}
+};
 
-function Stat({ icon: Icon, label, value }: any) {
+const Stat = ({ icon: Icon, label, value }: any) => {
   return (
     <View className="items-center gap-2">
       <View className="bg-muted p-3 rounded-xl">
@@ -176,4 +209,6 @@ function Stat({ icon: Icon, label, value }: any) {
       <Text className="text-mutedForeground text-xs">{label}</Text>
     </View>
   );
-}
+};
+
+export default Between;
