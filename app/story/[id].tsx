@@ -35,7 +35,7 @@ const PairStoryScreen = () => {
   };
   if (!pair || !stats) {
     return (
-      <View className="flex-1 justify-center items-center">
+      <View className="flex-1 bg-muted justify-center items-center">
         <HeartLoader />
       </View>
     );
@@ -49,21 +49,17 @@ const PairStoryScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <StoryHero pair={pair} />
-
         {/* Intro line */}
         <Text className="text-center text-mutedForeground/60 mt-5 mb-3">
           Your story so far ✨
-        </Text>''
+        </Text>
+        ''
         <RelationshipClockCounter pair={pair} />
-
         <StoryDivider />
-
         <ConversationStory stats={stats} />
         <MemoryStory stats={stats} />
         <VoiceStory stats={stats} />
-
         <StoryDivider />
-
         <GrowthSentence stats={stats} />
       </ScrollView>
     </SafeAreaView>

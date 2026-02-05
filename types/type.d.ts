@@ -70,3 +70,24 @@ export interface PairStats extends Models.Document {
 
   // updatedAt: datetime;
 }
+
+export interface pairDailyQuestionsDocument extends Models.Document {
+  pairId: string;
+  questionId: string;
+  dateKey: string; // "2026-02-03"
+  category: "light" | "deep" | "flirty" | "reflective";
+  answeredBy: string[]; // userIds
+  changeCount: number;
+  answers: [
+    {
+      userId: string;
+      text: string;
+      createdAt: string;
+    },
+  ];
+}
+export type QuestionAnswer = {
+  userId: string;
+  text: string;
+  createdAt: string;
+};

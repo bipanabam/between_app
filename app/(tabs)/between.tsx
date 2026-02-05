@@ -1,26 +1,25 @@
 import AnimatedCounter from "@/components/AnimatedCounter";
+import DailyQuestionCard from "@/components/between/DailyQuestionCard";
+import TogetherSinceCard from "@/components/between/TogetherSinceCard";
 import HeartLoader from "@/components/HearLoader";
 import PartnerCard from "@/components/PartnerCard";
 import RotatingMicrocopy from "@/components/RotatingMicrocopy";
-import TogetherSinceCard from "@/components/TogetherSinceCard";
 import { privacyMicrocopy } from "@/constant/privacyMicrocopy";
+import { QuestionCategory } from "@/constant/questions";
 import {
   confirmRelationshipDate,
   ensureUserDocument,
   getMyPair,
   getOrCreatePairStats,
+  getOrCreateTodayQuestion,
   getPartner,
+  getQuestionText,
   proposeRelationshipDate,
+  submitQuestionAnswer,
 } from "@/lib/appwrite";
-import { PairStats } from "@/types/type";
+import { PairStats, QuestionAnswer } from "@/types/type";
 import { useRouter } from "expo-router";
-import {
-  Bookmark,
-  Camera,
-  ChevronRight,
-  Heart,
-  MessageCircle,
-} from "lucide-react-native";
+import { Bookmark, Camera, Heart, MessageCircle } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,6 +29,13 @@ const Between = () => {
   const [pair, setPair] = useState<any>(null);
   const [partner, setPartner] = useState<any>(null);
   const [stats, setStats] = useState<PairStats | null>(null);
+  const [todayQ, setTodayQ] = useState<any>(null);
+  const [questionText, setQuestionText] = useState("");
+  const [myAnswer, setMyAnswer] = useState<string | undefined>();
+  const [partnerAnswer, setPartnerAnswer] = useState<string | undefined>();
+  const [currentCategory, setCurrentCategory] =
+    useState<QuestionCategory>("light");
+
   const router = useRouter();
 
   useEffect(() => {
@@ -39,12 +45,27 @@ const Between = () => {
         getPartner(),
         getMyPair(),
       ]);
+
       setMe(meDoc);
       setPartner(partnerDoc);
       setPair(pairDoc);
+
       if (pairDoc) {
         const statsDoc = await getOrCreatePairStats(pairDoc);
+        const qDoc = await getOrCreateTodayQuestion(pairDoc);
+
         setStats(statsDoc);
+        setTodayQ(qDoc);
+
+        // map into UI state
+        const selectedQuestion = getQuestionText(qDoc?.questionId);
+        setQuestionText(selectedQuestion ?? "");
+        setCurrentCategory((qDoc?.category as QuestionCategory) ?? "light");
+
+        // answers to question if any
+        const answers: QuestionAnswer[] = JSON.parse(qDoc.answers ?? "[]");
+        setMyAnswer(answers.find((a) => a.userId === meDoc.$id)?.text);
+        setPartnerAnswer(answers.find((a) => a.userId !== meDoc.$id)?.text);
       }
     };
 
@@ -70,6 +91,45 @@ const Between = () => {
     ? Math.floor((Date.now() - new Date(pair.$createdAt).getTime()) / 86400000)
     : 0;
 
+  // Today's question
+  const submitAnswer = async (answer: string) => {
+    if (!todayQ || !me || !pair) return;
+
+    await submitQuestionAnswer(todayQ, me.$id, answer);
+
+    const refreshed = await getOrCreateTodayQuestion(pair);
+    setTodayQ(refreshed);
+    const answers: QuestionAnswer[] = JSON.parse(refreshed.answers ?? "[]");
+
+    setMyAnswer(answers.find((a) => a.userId === me.$id)?.text);
+    setPartnerAnswer(answers.find((a) => a.userId !== me.$id)?.text);
+  };
+
+  const changeQuestion = async () => {
+    if (!pair) return;
+
+    const qDoc = await getOrCreateTodayQuestion(pair, currentCategory, {
+      forceNew: true,
+    });
+
+    setTodayQ(qDoc);
+    setQuestionText(getQuestionText(qDoc.questionId));
+    setPartnerAnswer(undefined);
+  };
+
+  const setCategory = async (category: QuestionCategory) => {
+    if (!pair) return;
+
+    setCurrentCategory(category);
+
+    const qDoc = await getOrCreateTodayQuestion(pair, category, {
+      forceNew: true,
+    });
+
+    setTodayQ(qDoc);
+    setQuestionText(getQuestionText(qDoc.questionId));
+  };
+
   if (!me || !partner || !pair) {
     return (
       <View className="flex-1 justify-center items-center">
@@ -79,7 +139,7 @@ const Between = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-card">
       <ScrollView
         className="flex-1 px-5"
         contentContainerStyle={{ paddingBottom: 120 }}
@@ -124,7 +184,7 @@ const Between = () => {
         {/* Stats */}
         <Pressable
           onPress={() => router.push(`/story/${pair.$id}`)}
-          className="bg-card rounded-3xl p-6 mt-6 shadow-sm"
+          className="bg-background rounded-3xl p-6 mt-6 shadow-sm"
         >
           <Text className="text-mutedForeground mb-4">
             Moments captured in this space
@@ -151,29 +211,19 @@ const Between = () => {
         </Pressable>
 
         {/* Today's Question */}
-        <Pressable className="bg-card rounded-3xl p-5 mt-6 shadow-sm">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <View className="bg-muted p-3 rounded-xl">
-                <MessageCircle size={18} color="#8a8075" />
-              </View>
-
-              <View className="flex-1">
-                <Text className="text-mutedForeground text-sm">
-                  Today’s question 🌙
-                </Text>
-                <Text numberOfLines={1} className="text-foreground font-medium">
-                  What's one thing you're grateful for today?
-                </Text>
-              </View>
-            </View>
-
-            <ChevronRight size={18} color="#8a8075" />
-          </View>
-        </Pressable>
+        <DailyQuestionCard
+          question={questionText}
+          partnerAnswer={partnerAnswer}
+          myAnswer={myAnswer}
+          partnerName={partner.nickname}
+          currentCategory={currentCategory}
+          onSubmitAnswer={submitAnswer}
+          onChangeQuestion={changeQuestion}
+          onCategoryChange={setCategory}
+        />
 
         {/* Last Memory */}
-        <View className="bg-card rounded-3xl p-5 mt-6 shadow-sm flex-row items-center gap-4">
+        <View className="bg-background rounded-3xl p-5 mt-6 shadow-sm flex-row items-center gap-4">
           <View className="bg-muted p-4 rounded-xl">
             <Camera size={18} color="#8a8075" />
           </View>

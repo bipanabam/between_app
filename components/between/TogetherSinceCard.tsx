@@ -6,6 +6,7 @@ import {
 } from "@gorhom/bottom-sheet";
 
 import PulseHeart from "@/components/PulseHeart";
+import StatusBadge from "@/components/StatusBadge";
 import { Calendar } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
@@ -17,12 +18,6 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-const StatusBadge = ({ label }: { label: string }) => (
-  <View className="self-start px-3 py-1 rounded-full bg-primary/15 mb-3">
-    <Text className="text-primary text-xs font-semibold">{label}</Text>
-  </View>
-);
-
 const TogetherSinceCard = ({ pair, meId, onPropose, onConfirm }: any) => {
   const [open, setOpen] = useState(false);
 
@@ -33,10 +28,10 @@ const TogetherSinceCard = ({ pair, meId, onPropose, onConfirm }: any) => {
     <>
       <Pressable
         onPress={() => setOpen(true)}
-        className="bg-card rounded-3xl p-5 mt-8 flex-row justify-between items-center"
+        className="bg-background rounded-3xl p-5 mt-8 flex-row justify-between items-center"
       >
         <View className="flex-row gap-3 items-center">
-          <View className="bg-muted p-3 rounded-xl">
+          <View className="bg-primary/20 p-3 rounded-xl">
             <Calendar size={18} color="#8a8075" />
           </View>
 

@@ -3,6 +3,7 @@ import {
   PairDocument,
   PairInviteDocument,
   PairStats,
+  QuestionAnswer,
   UserDocument,
 } from "@/types/type";
 import * as Linking from "expo-linking";
@@ -28,6 +29,7 @@ export const appwriteConfig = {
   pairInviteCollectionId: "pairinvite",
   messageCollectionId: "messages",
   pairStatsCollectionId: "pairstats",
+  pairDailyQuestionCollectionId: "pair_daily_questions",
 };
 
 export const client = new Client();
@@ -41,6 +43,11 @@ export const account = new Account(client);
 export const databases = new Databases(client);
 
 const avatars = new Avatars(client);
+
+const getDateKey = () => {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+};
 
 export const requestMagicLink = async (email: string) => {
   const redirectUrl = Linking.createURL("auth");
@@ -267,12 +274,6 @@ export const joinPairByCode = async (code: string) => {
         Permission.read(Role.user(userId)),
         Permission.update(Role.user(userId)),
       ],
-      //   [
-      //   Permission.read(Role.user(partnerOne)),
-      //   Permission.read(Role.user(partnerTwo)),
-      //   Permission.update(Role.user(partnerOne)),
-      //   Permission.update(Role.user(partnerTwo)),
-      // ]
     );
     pairUpdated = true;
 
@@ -665,4 +666,120 @@ export const getPairStats = async (pairId: string) => {
   );
 
   return res.documents[0] ?? null;
+};
+
+//
+import { QUESTION_BANK } from "@/constant/questions";
+
+const pickRandomQuestion = (excludeIds: string[]) => {
+  const pool = QUESTION_BANK.filter((q) => !excludeIds.includes(q.id));
+  if (!pool.length)
+    return QUESTION_BANK[Math.floor(Math.random() * QUESTION_BANK.length)];
+  return pool[Math.floor(Math.random() * pool.length)];
+};
+
+export const getOrCreateTodayQuestion = async (
+  pair: PairDocument,
+  category?: string,
+  options?: { forceNew?: boolean },
+) => {
+  const dateKey = getDateKey();
+
+  const res = await databases.listDocuments(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairDailyQuestionCollectionId,
+    [
+      Query.equal("pairId", pair.$id),
+      Query.equal("dateKey", dateKey),
+      Query.limit(1),
+    ],
+  );
+
+  // exists
+  if (res.documents.length) {
+    const doc = res.documents[0];
+
+    if (!options?.forceNew) return doc;
+
+    // change question → UPDATE doc
+    const usedIds = [doc.questionId];
+
+    const q = pickRandomQuestion(usedIds);
+
+    return databases.updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.pairDailyQuestionCollectionId,
+      doc.$id,
+      {
+        questionId: q.id,
+        category: category ?? doc.category ?? "light",
+        answers: JSON.stringify([]),
+        answeredBy: [],
+        changeCount: (doc.changeCount ?? 0) + 1,
+      },
+    );
+  }
+
+  // create first time
+  const recent = await databases.listDocuments(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairDailyQuestionCollectionId,
+    [
+      Query.equal("pairId", pair.$id),
+      Query.limit(7),
+      Query.orderDesc("$createdAt"),
+    ],
+  );
+
+  const usedIds = recent.documents.map((d) => d.questionId);
+  const q = pickRandomQuestion(usedIds);
+
+  return databases.createDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairDailyQuestionCollectionId,
+    ID.unique(),
+    {
+      pairId: pair.$id,
+      questionId: q.id,
+      category: category ?? "light",
+      dateKey,
+      answeredBy: [],
+      answers: JSON.stringify([]),
+      changeCount: 0,
+    },
+    [Permission.read(Role.users()), Permission.update(Role.users())],
+  );
+};
+
+export const getQuestionText = (id: string) => {
+  return QUESTION_BANK.find((q) => q.id === id)?.text ?? "Question";
+};
+
+export const submitQuestionAnswer = async (
+  doc: any,
+  userId: string,
+  text: string,
+) => {
+  const answers: QuestionAnswer[] = JSON.parse(doc.answers ?? "[]");
+
+  // remove previous answer from same user
+  const filtered = answers.filter((a) => a.userId !== userId);
+
+  filtered.push({
+    userId,
+    text,
+    createdAt: new Date().toISOString(),
+  });
+
+  const answeredBy = Array.from(new Set([...(doc.answeredBy ?? []), userId]));
+
+  await databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairDailyQuestionCollectionId,
+    doc.$id,
+    {
+      answers: JSON.stringify(filtered),
+      answeredBy,
+    },
+  );
 };

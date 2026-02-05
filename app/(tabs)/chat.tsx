@@ -1,6 +1,6 @@
-import ChatBubble from "@/components/ChatBubble";
-import ChatHeader from "@/components/ChatHeader";
-import ChatInput from "@/components/ChatInput";
+import ChatBubble from "@/components/chat/ChatBubble";
+import ChatHeader from "@/components/chat/ChatHeader";
+import ChatInput from "@/components/chat/ChatInput";
 import HeartLoader from "@/components/HearLoader";
 import {
   appwriteConfig,
@@ -21,7 +21,7 @@ import {
   KeyboardAvoidingView,
   Pressable,
   Text,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
