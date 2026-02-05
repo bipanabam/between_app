@@ -101,7 +101,7 @@ const TogetherSinceSheet = ({
   };
 
   const snapPoints = useMemo(
-    () => (showPicker ? ["68%"] : proposedByMe ? ["28%"] : ["35%"]),
+    () => (showPicker ? ["68%"] : proposedByMe ? ["33%"] : ["35%"]),
     [showPicker, proposedByMe],
   );
 

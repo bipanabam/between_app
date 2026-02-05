@@ -21,6 +21,7 @@ export interface PairDocument extends Models.Document {
 
   createdBy: string;
   isComplete: boolean;
+  pairFormedAt?: datetime | null;
 
   relationshipStartDate?: datetime | null;
   relationshipStartDateProposedBy?: string | null;
@@ -62,11 +63,10 @@ export interface PairStats extends Models.Document {
   messagesCount: number;
   photosCount: number;
   voiceCount: number;
-  reactionsCount: number;
   savedCount: number;
 
   firstMessageAt: datetime;
   lastMessageAt: datetime;
 
-  updatedAt: datetime;
+  // updatedAt: datetime;
 }

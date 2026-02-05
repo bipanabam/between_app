@@ -1,3 +1,4 @@
+import AnimatedCounter from "@/components/AnimatedCounter";
 import HeartLoader from "@/components/HearLoader";
 import PartnerCard from "@/components/PartnerCard";
 import RotatingMicrocopy from "@/components/RotatingMicrocopy";
@@ -7,15 +8,17 @@ import {
   confirmRelationshipDate,
   ensureUserDocument,
   getMyPair,
+  getOrCreatePairStats,
   getPartner,
   proposeRelationshipDate,
 } from "@/lib/appwrite";
+import { PairStats } from "@/types/type";
 import {
   Bookmark,
   Camera,
   ChevronRight,
   Heart,
-  MessageCircle
+  MessageCircle,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -25,6 +28,7 @@ const Between = () => {
   const [me, setMe] = useState<any>(null);
   const [pair, setPair] = useState<any>(null);
   const [partner, setPartner] = useState<any>(null);
+  const [stats, setStats] = useState<PairStats | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -33,10 +37,13 @@ const Between = () => {
         getPartner(),
         getMyPair(),
       ]);
-
       setMe(meDoc);
       setPartner(partnerDoc);
       setPair(pairDoc);
+      if (pairDoc) {
+        const statsDoc = await getOrCreatePairStats(pairDoc);
+        setStats(statsDoc);
+      }
     };
 
     load();
@@ -57,6 +64,9 @@ const Between = () => {
     const updated = await getMyPair();
     setPair(updated);
   };
+  const daysTogetherHere = pair?.$createdAt
+    ? Math.floor((Date.now() - new Date(pair.$createdAt).getTime()) / 86400000)
+    : 0;
 
   if (!me || !partner || !pair) {
     return (
@@ -116,10 +126,31 @@ const Between = () => {
           </Text>
 
           <View className="flex-row justify-between">
-            <Stat icon={MessageCircle} label="messages" value="1,247" />
-            <Stat icon={Camera} label="photos" value="89" />
-            <Stat icon={Bookmark} label="saved" value="23" />
-            <Stat icon={Heart} label="days here" value="142" />
+            <Stat
+              icon={MessageCircle}
+              label="messages"
+              value={stats?.messagesCount ?? 0}
+            />
+            <Stat
+              icon={Camera}
+              label="moments"
+              value={stats?.photosCount ?? 0}
+            />
+            <Stat
+              icon={Bookmark}
+              label="collection"
+              value={stats?.savedCount ?? 0}
+            />
+            <Stat icon={Heart} label="days here" value={daysTogetherHere} />
+            {/* <View className="flex-row items-end gap-1">
+  <AnimatedCounter
+    value={daysTogetherHere}
+    className="text-primary font-semibold text-lg"
+  />
+  <Text className="text-mutedForeground text-xs mb-0.5">
+    days in Between
+  </Text>
+</View> */}
           </View>
         </View>
 
@@ -185,7 +216,14 @@ const Stat = ({ icon: Icon, label, value }: any) => {
       <View className="bg-muted p-3 rounded-xl">
         <Icon size={18} color="#8a8075" />
       </View>
-      <Text className="text-foreground font-semibold">{value}</Text>
+      {/* <Text className="text-foreground font-semibold">{value}</Text> */}
+      <AnimatedCounter
+        key={value}
+        value={value}
+        duration={2000}
+        className="text-primary font-semibold"
+      />
+
       <Text className="text-mutedForeground text-xs">{label}</Text>
     </View>
   );

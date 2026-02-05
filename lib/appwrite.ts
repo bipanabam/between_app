@@ -2,6 +2,7 @@ import {
   MessageDocument,
   PairDocument,
   PairInviteDocument,
+  PairStats,
   UserDocument,
 } from "@/types/type";
 import * as Linking from "expo-linking";
@@ -26,6 +27,7 @@ export const appwriteConfig = {
   pairCollectionId: "pair",
   pairInviteCollectionId: "pairinvite",
   messageCollectionId: "messages",
+  pairStatsCollectionId: "pairstats",
 };
 
 export const client = new Client();
@@ -259,6 +261,7 @@ export const joinPairByCode = async (code: string) => {
         partnerTwo: userId,
         isComplete: true,
         status: "active",
+        pairFormedAt: new Date().toISOString(),
       },
       [
         Permission.read(Role.user(userId)),
@@ -341,12 +344,12 @@ export const ensurePairDocument = async () => {
   }
 };
 
-export const getMyPair = async () => {
+export const getMyPair = async (): Promise<PairDocument | null> => {
   const me = await ensureUserDocument();
 
   if (!me?.pairId) return null;
 
-  return databases.getDocument(
+  return databases.getDocument<PairDocument>(
     appwriteConfig.databaseId,
     appwriteConfig.pairCollectionId,
     me.pairId,
@@ -422,6 +425,34 @@ export const getMessages = async (pairId: string) => {
   }
 };
 
+export const incrementStats = async (
+  pairId: string,
+  type: "text" | "image" | "audio",
+) => {
+  // fetch pair doc
+  const pair = await databases.getDocument<PairDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairCollectionId,
+    pairId,
+  );
+
+  // get stats (create if missing)
+  const stats = await getOrCreatePairStats(pair);
+
+  //update counters
+  return databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairStatsCollectionId,
+    stats.$id,
+    {
+      messagesCount: stats.messagesCount + 1,
+      photosCount: stats.photosCount + (type === "image" ? 1 : 0),
+      voiceCount: stats.voiceCount + (type === "audio" ? 1 : 0),
+      updatedAt: new Date().toISOString(),
+    },
+  );
+};
+
 export const sendMessage = async ({
   pairId,
   text,
@@ -430,7 +461,7 @@ export const sendMessage = async ({
 }: {
   pairId: string;
   text: string;
-  type?: "text" | "image" | "audio" | "system";
+  type?: "text" | "image" | "audio";
   replyTo?: MessageDocument | null;
 }) => {
   const accountInfo = await account.get();
@@ -442,7 +473,7 @@ export const sendMessage = async ({
     pairId,
   );
 
-  return databases.createDocument(
+  const msg = databases.createDocument(
     appwriteConfig.databaseId,
     appwriteConfig.messageCollectionId,
     ID.unique(),
@@ -461,6 +492,8 @@ export const sendMessage = async ({
       // Permission.delete(Role.user(senderId)),
     ],
   );
+  await incrementStats(pair.$id, type);
+  return msg;
 };
 
 export const addReaction = async (
@@ -568,4 +601,68 @@ export const confirmRelationshipDate = async (pair: PairDocument) => {
       relationshipStartDateConfirmed: true,
     },
   );
+};
+
+export const getOrCreatePairStats = async (pair: PairDocument) => {
+  const res = await databases.listDocuments<PairStats>(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairStatsCollectionId,
+    [Query.equal("pairId", pair.$id), Query.limit(1)],
+  );
+
+  if (res.documents.length) return res.documents[0];
+
+  const messages = await databases.listDocuments<MessageDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.messageCollectionId,
+    [
+      Query.equal("conversationId", pair.$id),
+      Query.limit(5000), // adjust if needed
+    ],
+  );
+
+  const docs = messages.documents;
+  // let reactionsCount = 0;
+
+  // docs.forEach((m) => {
+  //   if (!m.reactions) return;
+  //   try {
+  //     const parsed = JSON.parse(m.reactions);
+  //     reactionsCount += Object.keys(parsed).length;
+  //   } catch {}
+  // });
+
+  const photosCount = docs.filter((m) => m.type === "image").length;
+  const voiceCount = docs.filter((m) => m.type === "audio").length;
+
+  const firstMessageAt = docs[0]?.$createdAt ?? null;
+  const lastMessageAt = docs.at(-1)?.$createdAt ?? null;
+
+  return databases.createDocument<PairStats>(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairStatsCollectionId,
+    ID.unique(),
+    {
+      pairId: pair.$id,
+      messagesCount: docs.length,
+      photosCount,
+      voiceCount,
+      savedCount: 0,
+
+      firstMessageAt,
+      lastMessageAt,
+      // updatedAt: new Date().toISOString(),
+    },
+    [Permission.read(Role.users()), Permission.update(Role.users())],
+  );
+};
+
+export const getPairStats = async (pairId: string) => {
+  const res = await databases.listDocuments<PairStats>(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairStatsCollectionId,
+    [Query.equal("pairId", pairId), Query.limit(1)],
+  );
+
+  return res.documents[0] ?? null;
 };
