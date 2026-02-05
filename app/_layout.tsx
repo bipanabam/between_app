@@ -20,6 +20,7 @@ function RootLayoutNav() {
     const inLock = segments[0] === "(lock)";
     const inReset = segments[0] === "(reset)";
     const inTabs = segments[0] === "(tabs)";
+    const inStory = segments[0] === "story";
 
     switch (status) {
       case "unauthenticated":
@@ -48,7 +49,7 @@ function RootLayoutNav() {
         break;
 
       case "ready":
-        if (!inTabs) {
+        if (!inTabs && !inStory) {
           router.replace("/(tabs)/between");
         }
         break;

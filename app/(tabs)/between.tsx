@@ -13,6 +13,7 @@ import {
   proposeRelationshipDate,
 } from "@/lib/appwrite";
 import { PairStats } from "@/types/type";
+import { useRouter } from "expo-router";
 import {
   Bookmark,
   Camera,
@@ -29,6 +30,7 @@ const Between = () => {
   const [pair, setPair] = useState<any>(null);
   const [partner, setPartner] = useState<any>(null);
   const [stats, setStats] = useState<PairStats | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const load = async () => {
@@ -120,7 +122,10 @@ const Between = () => {
         />
 
         {/* Stats */}
-        <View className="bg-card rounded-3xl p-6 mt-6 shadow-sm">
+        <Pressable
+          onPress={() => router.push(`/story/${pair.$id}`)}
+          className="bg-card rounded-3xl p-6 mt-6 shadow-sm"
+        >
           <Text className="text-mutedForeground mb-4">
             Moments captured in this space
           </Text>
@@ -142,17 +147,8 @@ const Between = () => {
               value={stats?.savedCount ?? 0}
             />
             <Stat icon={Heart} label="days here" value={daysTogetherHere} />
-            {/* <View className="flex-row items-end gap-1">
-  <AnimatedCounter
-    value={daysTogetherHere}
-    className="text-primary font-semibold text-lg"
-  />
-  <Text className="text-mutedForeground text-xs mb-0.5">
-    days in Between
-  </Text>
-</View> */}
           </View>
-        </View>
+        </Pressable>
 
         {/* Today's Question */}
         <Pressable className="bg-card rounded-3xl p-5 mt-6 shadow-sm">

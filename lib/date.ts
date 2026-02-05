@@ -20,3 +20,15 @@ export const daysSince = (input?: string | Date | null) => {
 
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
+
+export const isAnniversary = (date?: string | null) => {
+  if (!date) return false;
+
+  const d = new Date(date);
+  const now = new Date();
+
+  return (
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth()
+  );
+};
