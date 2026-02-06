@@ -1,6 +1,6 @@
 import AnimatedCounter from "@/components/AnimatedCounter";
 import DailyQuestionCard from "@/components/between/DailyQuestionCard";
-import ThinkingOfYouButton from "@/components/between/ThinkingOfYouButton";
+import LoveRitualPanel from "@/components/between/LoveRitualPanel";
 import TogetherSinceCard from "@/components/between/TogetherSinceCard";
 import HeartLoader from "@/components/HearLoader";
 import PartnerCard from "@/components/PartnerCard";
@@ -10,11 +10,13 @@ import { QuestionCategory } from "@/constant/questions";
 import {
   confirmRelationshipDate,
   ensureUserDocument,
+  getMutualStreak,
   getMyPair,
   getOrCreatePairStats,
   getOrCreateTodayQuestion,
   getPartner,
   getQuestionText,
+  hasSentLoveToday,
   proposeRelationshipDate,
   sendThinkingOfYouNotification,
   submitQuestionAnswer,
@@ -35,13 +37,19 @@ const Between = () => {
   const [pair, setPair] = useState<any>(null);
   const [partner, setPartner] = useState<any>(null);
   const [stats, setStats] = useState<PairStats | null>(null);
+
   const [todayQ, setTodayQ] = useState<any>(null);
   const [questionText, setQuestionText] = useState("");
   const [myAnswer, setMyAnswer] = useState<string | undefined>();
   const [partnerAnswer, setPartnerAnswer] = useState<string | undefined>();
+
   const [isSendingLove, setIsSendingLove] = useState(false);
+
   const partnerOnline = isOnline(partner?.lastActiveAt);
   const meOnline = isOnline(me?.lastActiveAt);
+
+  const [mutualStreak, setMutualStreak] = useState(0);
+  const [sentToday, setSentToday] = useState(false);
 
   const [currentCategory, setCurrentCategory] =
     useState<QuestionCategory>("light");
@@ -59,6 +67,16 @@ const Between = () => {
       setMe(meDoc);
       setPartner(partnerDoc);
       setPair(pairDoc);
+
+      if (pairDoc && meDoc) {
+        const [streak, sent] = await Promise.all([
+          getMutualStreak(pairDoc.$id),
+          hasSentLoveToday(pairDoc.$id, meDoc.$id),
+        ]);
+
+        setMutualStreak(streak);
+        setSentToday(sent);
+      }
 
       if (pairDoc) {
         const statsDoc = await getOrCreatePairStats(pairDoc);
@@ -169,6 +187,15 @@ const Between = () => {
         fromName: me.nickname,
       });
 
+      // refresh ritual state after send
+      const [streak, sent] = await Promise.all([
+        getMutualStreak(pair.$id),
+        hasSentLoveToday(pair.$id, me.$id),
+      ]);
+
+      setMutualStreak(streak);
+      setSentToday(sent);
+
       Toast.show({
         type: "success",
         text1: "💞 Little love is Sent",
@@ -238,6 +265,14 @@ const Between = () => {
           onConfirm={handleConfirmDate}
         />
 
+        {/* Love Ritual Panel */}
+        <LoveRitualPanel
+          onSend={handleThinkingOfYou}
+          isSending={isSendingLove}
+          sentToday={sentToday}
+          streak={mutualStreak}
+        />
+
         {/* Stats */}
         <Pressable
           onPress={() => router.push(`/story/${pair.$id}`)}
@@ -297,18 +332,10 @@ const Between = () => {
         </View>
 
         {/* CTA */}
-        {/* <Pressable className="bg-primary/80 rounded-2xl py-5 mt-8 items-center">
-          <View className="flex-row items-center gap-3">
-            <Heart size={18} color="white" />
-            <Text className="text-white text-lg font-medium">
-              Thinking of you
-            </Text>
-          </View>
-        </Pressable> */}
-        <ThinkingOfYouButton
+        {/* <ThinkingOfYouButton
           onPress={handleThinkingOfYou}
           isSending={isSendingLove}
-        />
+        /> */}
 
         {/* Footer */}
         <RotatingMicrocopy lines={privacyMicrocopy} />
