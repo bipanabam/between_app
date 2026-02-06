@@ -798,6 +798,9 @@ export const submitQuestionAnswer = async (
   );
 };
 
+{
+  /* Thinking of you*/
+}
 export const sendThinkingOfYouNotification = async (
   payload: ThinkingOfYouPayload,
 ) => {
@@ -861,4 +864,36 @@ export const getMutualStreak = async (pairId: string) => {
   }
 
   return streak;
+};
+
+{
+  /* Mood */
+}
+export const updateMood = async (
+  userId: string,
+  emoji: string,
+  label: string,
+) => {
+  return databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.userCollectionId,
+    userId,
+    {
+      moodEmoji: emoji,
+      moodLabel: label,
+      moodUpdatedAt: new Date().toISOString(),
+    },
+  );
+};
+
+export const getActiveMood = (user: any) => {
+  if (!user?.moodUpdatedAt) return null;
+
+  const age = Date.now() - new Date(user.moodUpdatedAt).getTime();
+
+  const hours = age / (1000 * 60 * 60);
+
+  if (hours > 24) return null;
+
+  return user.moodEmoji;
 };

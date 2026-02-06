@@ -10,6 +10,11 @@ export interface UserDocument extends Models.Document {
   passcodeHash?: string;
   pairId?: string | null;
   avatar?: string;
+
+  //mood
+  moodEmoji?: string | null;
+  moodLabel?: string | null;
+  moodUpdatedAt?: datetime | null;
 }
 
 export type PairStatus = "pending" | "active" | "cancelled" | "archived";

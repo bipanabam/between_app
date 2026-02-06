@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Animated, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 
 export const getPresenceLabel = (last?: string) => {
   if (!last) return "";
@@ -13,6 +13,16 @@ export const getPresenceLabel = (last?: string) => {
   return "";
 };
 
+interface PartnerCardProps {
+  name: string;
+  online: boolean;
+  emoji: string;
+  mood: string;
+  color: string;
+  lastActiveAt: string;
+  onPressAvatar?: () => void;
+}
+
 const PartnerCard = ({
   name,
   online,
@@ -20,7 +30,8 @@ const PartnerCard = ({
   mood,
   color,
   lastActiveAt,
-}: any) => {
+  onPressAvatar,
+}: PartnerCardProps) => {
   // soft pulse animation when online
   const pulse = useRef(new Animated.Value(1)).current;
   const dotOpacity = useRef(new Animated.Value(1)).current;
@@ -67,7 +78,7 @@ const PartnerCard = ({
   }, [online]);
 
   return (
-    <View className="items-center">
+    <Pressable onPress={onPressAvatar} className="items-center">
       <Animated.View
         style={{
           transform: [{ scale: online ? pulse : 1 }],
@@ -76,6 +87,11 @@ const PartnerCard = ({
         }}
         className="w-24 h-24 rounded-full items-center justify-center"
       >
+        {mood && (
+          <View className="absolute -top-1 -right-1">
+            <Text style={{ fontSize: 16 }}>{mood}</Text>
+          </View>
+        )}
         <View
           className="w-24 h-24 rounded-full items-center justify-center"
           style={{
@@ -102,7 +118,7 @@ const PartnerCard = ({
       </Animated.View>
 
       <Text className="mt-4 font-medium text-foreground">{name}</Text>
-      <Text style={{ fontSize: 20 }}>{mood}</Text>
+      {/* <Text style={{ fontSize: 20 }}>{mood}</Text> */}
 
       {/* emotional presence label */}
       <Text
@@ -112,7 +128,7 @@ const PartnerCard = ({
       >
         {getPresenceLabel(lastActiveAt)}
       </Text>
-    </View>
+    </Pressable>
   );
 };
 

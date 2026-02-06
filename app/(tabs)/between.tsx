@@ -1,6 +1,7 @@
 import AnimatedCounter from "@/components/AnimatedCounter";
 import DailyQuestionCard from "@/components/between/DailyQuestionCard";
 import LoveRitualPanel from "@/components/between/LoveRitualPanel";
+import MoodBottomSheet from "@/components/between/MoodBottomSheet";
 import TogetherSinceCard from "@/components/between/TogetherSinceCard";
 import HeartLoader from "@/components/HearLoader";
 import PartnerCard from "@/components/PartnerCard";
@@ -10,6 +11,7 @@ import { QuestionCategory } from "@/constant/questions";
 import {
   confirmRelationshipDate,
   ensureUserDocument,
+  getActiveMood,
   getMutualStreak,
   getMyPair,
   getOrCreatePairStats,
@@ -20,6 +22,7 @@ import {
   proposeRelationshipDate,
   sendThinkingOfYouNotification,
   submitQuestionAnswer,
+  updateMood,
   updatePushToken,
 } from "@/lib/appwrite";
 import { isOnline } from "@/lib/helper";
@@ -51,6 +54,10 @@ const Between = () => {
   const [mutualStreak, setMutualStreak] = useState(0);
   const [sentToday, setSentToday] = useState(false);
 
+  const [myMood, setMyMood] = useState<string | null>(null);
+  const [partnerMood, setPartnerMood] = useState<string | null>(null);
+  const [showMoodSheet, setShowMoodSheet] = useState(false);
+
   const [currentCategory, setCurrentCategory] =
     useState<QuestionCategory>("light");
 
@@ -67,6 +74,8 @@ const Between = () => {
       setMe(meDoc);
       setPartner(partnerDoc);
       setPair(pairDoc);
+      setMyMood(getActiveMood(meDoc));
+      setPartnerMood(getActiveMood(partnerDoc));
 
       if (pairDoc && meDoc) {
         const [streak, sent] = await Promise.all([
@@ -237,7 +246,7 @@ const Between = () => {
           <PartnerCard
             name={partner.nickname}
             emoji="💗"
-            mood="😌"
+            mood={partnerMood ?? ""}
             color="#E57399"
             online={partnerOnline}
             lastActiveAt={partner.lastActiveAt}
@@ -246,10 +255,11 @@ const Between = () => {
           <PartnerCard
             name={me.nickname}
             emoji="💙"
-            mood="🙂"
+            mood={myMood ?? ""}
             color="#2F6BD6"
             online={meOnline}
             lastActiveAt={me.lastActiveAt}
+            onPressAvatar={() => setShowMoodSheet(true)}
           />
         </View>
 
@@ -271,6 +281,18 @@ const Between = () => {
           isSending={isSendingLove}
           sentToday={sentToday}
           streak={mutualStreak}
+        />
+
+        {/* Today's Question */}
+        <DailyQuestionCard
+          question={questionText}
+          partnerAnswer={partnerAnswer}
+          myAnswer={myAnswer}
+          partnerName={partner.nickname}
+          currentCategory={currentCategory}
+          onSubmitAnswer={submitAnswer}
+          onChangeQuestion={changeQuestion}
+          onCategoryChange={setCategory}
         />
 
         {/* Stats */}
@@ -302,18 +324,6 @@ const Between = () => {
           </View>
         </Pressable>
 
-        {/* Today's Question */}
-        <DailyQuestionCard
-          question={questionText}
-          partnerAnswer={partnerAnswer}
-          myAnswer={myAnswer}
-          partnerName={partner.nickname}
-          currentCategory={currentCategory}
-          onSubmitAnswer={submitAnswer}
-          onChangeQuestion={changeQuestion}
-          onCategoryChange={setCategory}
-        />
-
         {/* Last Memory */}
         <View className="bg-background rounded-3xl p-5 mt-6 shadow-sm flex-row items-center gap-4">
           <View className="bg-muted p-4 rounded-xl">
@@ -339,6 +349,29 @@ const Between = () => {
 
         {/* Footer */}
         <RotatingMicrocopy lines={privacyMicrocopy} />
+        <MoodBottomSheet
+          isOpen={showMoodSheet}
+          onSelect={async (mood) => {
+            setMyMood(mood.emoji);
+
+            await updateMood(me.$id, mood.emoji, mood.label);
+
+            setShowMoodSheet(false);
+            Toast.show({
+              type: "success",
+              text1: `${mood.emoji} Mood shared`,
+              text2: "They’ll see how you feel",
+            });
+
+            // update local copy so UI stays in sync
+            setMe({
+              ...me,
+              moodEmoji: mood.emoji,
+              moodUpdatedAt: new Date().toISOString(),
+            });
+          }}
+          onClose={() => setShowMoodSheet(false)}
+        />
       </ScrollView>
     </SafeAreaView>
   );
