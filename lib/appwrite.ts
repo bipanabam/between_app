@@ -4,6 +4,7 @@ import {
   PairInviteDocument,
   PairStats,
   QuestionAnswer,
+  ThinkingOfYouPayload,
   UserDocument,
 } from "@/types/type";
 import * as Linking from "expo-linking";
@@ -13,6 +14,7 @@ import {
   Avatars,
   Client,
   Databases,
+  Functions,
   ID,
   Permission,
   Query,
@@ -30,9 +32,11 @@ export const appwriteConfig = {
   messageCollectionId: "messages",
   pairStatsCollectionId: "pairstats",
   pairDailyQuestionCollectionId: "pair_daily_questions",
+  thinkingPinsCollectionId: "thinking_pings",
 };
 
 export const client = new Client();
+const functions = new Functions(client);
 
 client
   .setEndpoint(appwriteConfig.endpoint)
@@ -85,6 +89,15 @@ export const verifyOtp = async (otp: string) => {
   }
 };
 
+export const updatePushToken = async (userId: string, token: string) => {
+  await databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.userCollectionId,
+    userId,
+    { pushToken: token },
+  );
+};
+
 export const getUser = async () => {
   const accountInfo = await account.get();
   return accountInfo;
@@ -129,6 +142,8 @@ export const updateUser = async (data: {
   passcodeHash?: string;
   nickname?: string;
   pairId?: string;
+  pushToken?: string;
+  lastActiveAt?: string;
 }) => {
   const accountInfo = await account.get();
   const userId = accountInfo.$id;
@@ -449,7 +464,6 @@ export const incrementStats = async (
       messagesCount: stats.messagesCount + 1,
       photosCount: stats.photosCount + (type === "image" ? 1 : 0),
       voiceCount: stats.voiceCount + (type === "audio" ? 1 : 0),
-      updatedAt: new Date().toISOString(),
     },
   );
 };
@@ -782,4 +796,18 @@ export const submitQuestionAnswer = async (
       answeredBy,
     },
   );
+};
+
+export const sendThinkingOfYouNotification = async (
+  payload: ThinkingOfYouPayload,
+) => {
+  const res = await functions.createExecution(
+    "6985b3fa0028092fcb45",
+    JSON.stringify(payload),
+  );
+  if (res.status !== "completed") {
+    throw new Error("Function failed");
+  }
+
+  return res.responseBody ? JSON.parse(res.responseBody) : null;
 };

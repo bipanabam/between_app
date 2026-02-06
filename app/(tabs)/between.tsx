@@ -1,5 +1,6 @@
 import AnimatedCounter from "@/components/AnimatedCounter";
 import DailyQuestionCard from "@/components/between/DailyQuestionCard";
+import ThinkingOfYouButton from "@/components/between/ThinkingOfYouButton";
 import TogetherSinceCard from "@/components/between/TogetherSinceCard";
 import HeartLoader from "@/components/HearLoader";
 import PartnerCard from "@/components/PartnerCard";
@@ -15,14 +16,18 @@ import {
   getPartner,
   getQuestionText,
   proposeRelationshipDate,
+  sendThinkingOfYouNotification,
   submitQuestionAnswer,
+  updatePushToken,
 } from "@/lib/appwrite";
+import { registerForPushToken } from "@/lib/push";
 import { PairStats, QuestionAnswer } from "@/types/type";
 import { useRouter } from "expo-router";
 import { Bookmark, Camera, Heart, MessageCircle } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
 
 const Between = () => {
   const [me, setMe] = useState<any>(null);
@@ -33,6 +38,8 @@ const Between = () => {
   const [questionText, setQuestionText] = useState("");
   const [myAnswer, setMyAnswer] = useState<string | undefined>();
   const [partnerAnswer, setPartnerAnswer] = useState<string | undefined>();
+  const [isSendingLove, setIsSendingLove] = useState(false);
+
   const [currentCategory, setCurrentCategory] =
     useState<QuestionCategory>("light");
 
@@ -71,6 +78,21 @@ const Between = () => {
 
     load();
   }, []);
+
+  useEffect(() => {
+    const setupPush = async () => {
+      if (!me) return;
+
+      const token = await registerForPushToken();
+      if (!token) return;
+
+      if (token !== me.pushToken) {
+        await updatePushToken(me.$id, token);
+      }
+    };
+
+    setupPush();
+  }, [me]);
 
   const handleProposeDate = async (date: Date) => {
     if (!pair || !me) return;
@@ -130,6 +152,36 @@ const Between = () => {
     setQuestionText(getQuestionText(qDoc.questionId));
   };
 
+  // handle thinking of you
+  const handleThinkingOfYou = async () => {
+    if (!partner || !me || !pair || isSendingLove) return;
+
+    try {
+      setIsSendingLove(true);
+
+      await sendThinkingOfYouNotification({
+        pairId: pair.$id,
+        fromUserId: me.$id,
+        toUserId: partner.$id,
+        fromName: me.nickname,
+      });
+
+      Toast.show({
+        type: "success",
+        text1: "💞 Little love is Sent",
+        text2: `${partner.nickname} will feel it soon`,
+      });
+    } catch (e) {
+      Toast.show({
+        type: "error",
+        text1: "Couldn’t send",
+        text2: "Connection hiccup — try again",
+      });
+    } finally {
+      setTimeout(() => setIsSendingLove(false), 1200);
+    }
+  };
+
   if (!me || !partner || !pair) {
     return (
       <View className="flex-1 justify-center items-center">
@@ -162,7 +214,7 @@ const Between = () => {
 
           <PartnerCard
             name={me.nickname}
-            status="tap"
+            status="tap to change"
             emoji="💙"
             mood="🙂"
             color="#2F6BD6"
@@ -240,14 +292,18 @@ const Between = () => {
         </View>
 
         {/* CTA */}
-        <Pressable className="bg-primary/80 rounded-2xl py-5 mt-8 items-center">
+        {/* <Pressable className="bg-primary/80 rounded-2xl py-5 mt-8 items-center">
           <View className="flex-row items-center gap-3">
             <Heart size={18} color="white" />
             <Text className="text-white text-lg font-medium">
               Thinking of you
             </Text>
           </View>
-        </Pressable>
+        </Pressable> */}
+        <ThinkingOfYouButton
+          onPress={handleThinkingOfYou}
+          isSending={isSendingLove}
+        />
 
         {/* Footer */}
         <RotatingMicrocopy lines={privacyMicrocopy} />

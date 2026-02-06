@@ -101,8 +101,11 @@ const DailyQuestionCard = ({
   });
 
   const toggleExpand = () => {
-    setExpanded((v) => !v);
-    chevron.value = withTiming(expanded ? 0 : 1, { duration: 220 });
+    setExpanded((prev) => {
+      const next = !prev;
+      chevron.value = withTiming(next ? 1 : 0, { duration: 220 });
+      return next;
+    });
   };
 
   const handleSubmit = () => {

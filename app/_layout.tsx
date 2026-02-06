@@ -1,11 +1,23 @@
 import "react-native-gesture-handler";
-
+import Toast from "react-native-toast-message";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import * as Notifications from "expo-notifications";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "./global.css";
+
+Notifications.setNotificationHandler({
+  handleNotification:
+    async (): Promise<Notifications.NotificationBehavior> => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+});
 
 function RootLayoutNav() {
   const { loading, status } = useAuth();
@@ -66,6 +78,7 @@ export default function RootLayout() {
         <BottomSheetModalProvider>
           <>
             <RootLayoutNav />
+            <Toast />  
           </>
         </BottomSheetModalProvider>
       </AuthProvider>

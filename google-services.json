@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "579805563381",
+    "project_id": "between-app-dd51e",
+    "storage_bucket": "between-app-dd51e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:579805563381:android:b9879e8c690d3f9a4178bc",
+        "android_client_info": {
+          "package_name": "com.bipanabam.between_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeudD04xpZ6Jx92JvhnavEKF2oVLZXmhw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

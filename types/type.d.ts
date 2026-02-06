@@ -91,3 +91,11 @@ export type QuestionAnswer = {
   text: string;
   createdAt: string;
 };
+
+export type ThinkingOfYouPayload = {
+  pairId: string;
+  fromUserId: string;
+  toUserId: string;
+  fromName: string;
+  // pushToken?: string;
+};

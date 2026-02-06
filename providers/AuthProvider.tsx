@@ -2,7 +2,9 @@ import {
   account,
   ensurePairDocument,
   ensureUserDocument,
+  updateUser,
 } from "@/lib/appwrite";
+import { registerForPushToken } from "@/lib/push";
 import { PairDocument, UserDocument } from "@/types/type";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -152,6 +154,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => sub.remove();
   }, [user?.passcodeHash]);
+
+  useEffect(() => {
+    if (status !== "ready") return;
+
+    async function setupPush() {
+      const token = await registerForPushToken();
+      if (!token) return;
+
+      await updateUser({
+        pushToken: token,
+        lastActiveAt: new Date().toISOString(),
+      });
+    }
+
+    setupPush();
+  }, [status]);
 
   return (
     <AuthContext.Provider
