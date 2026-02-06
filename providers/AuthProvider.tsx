@@ -171,6 +171,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setupPush();
   }, [status]);
 
+  // HeartBeat for Partner Online Indicator
+  useEffect(() => {
+    if (!user) return;
+
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const sendHeartbeat = () => {
+      updateUser({
+        lastActiveAt: new Date().toISOString(),
+      });
+    };
+
+    const handleState = (state: string) => {
+      if (state === "active") {
+        sendHeartbeat(); // immediate
+        interval = setInterval(sendHeartbeat, 120000); // every 2 min
+      } else {
+        if (interval) clearInterval(interval);
+        sendHeartbeat(); // mark last seen
+      }
+    };
+
+    const sub = AppState.addEventListener("change", handleState);
+
+    // start immediately if already active
+    handleState(AppState.currentState);
+
+    return () => {
+      sub.remove();
+      if (interval) clearInterval(interval);
+    };
+  }, [user]);
+
   return (
     <AuthContext.Provider
       value={{

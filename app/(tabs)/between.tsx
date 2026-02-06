@@ -20,6 +20,7 @@ import {
   submitQuestionAnswer,
   updatePushToken,
 } from "@/lib/appwrite";
+import { isOnline } from "@/lib/helper";
 import { registerForPushToken } from "@/lib/push";
 import { PairStats, QuestionAnswer } from "@/types/type";
 import { useRouter } from "expo-router";
@@ -39,6 +40,8 @@ const Between = () => {
   const [myAnswer, setMyAnswer] = useState<string | undefined>();
   const [partnerAnswer, setPartnerAnswer] = useState<string | undefined>();
   const [isSendingLove, setIsSendingLove] = useState(false);
+  const partnerOnline = isOnline(partner?.lastActiveAt);
+  const meOnline = isOnline(me?.lastActiveAt);
 
   const [currentCategory, setCurrentCategory] =
     useState<QuestionCategory>("light");
@@ -206,18 +209,20 @@ const Between = () => {
         <View className="flex-row justify-center gap-12 mt-10">
           <PartnerCard
             name={partner.nickname}
-            status="here now"
             emoji="💗"
             mood="😌"
             color="#E57399"
+            online={partnerOnline}
+            lastActiveAt={partner.lastActiveAt}
           />
 
           <PartnerCard
             name={me.nickname}
-            status="tap to change"
             emoji="💙"
             mood="🙂"
             color="#2F6BD6"
+            online={meOnline}
+            lastActiveAt={me.lastActiveAt}
           />
         </View>
 

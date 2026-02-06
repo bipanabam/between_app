@@ -811,3 +811,54 @@ export const sendThinkingOfYouNotification = async (
 
   return res.responseBody ? JSON.parse(res.responseBody) : null;
 };
+
+export const hasSentLoveToday = async (pairId: string, userId: string) => {
+  const today = new Date().toISOString().slice(0, 10);
+
+  const res = await databases.listDocuments(
+    appwriteConfig.databaseId,
+    appwriteConfig.thinkingPinsCollectionId,
+    [
+      Query.equal("pairId", pairId),
+      Query.equal("fromUserId", userId),
+      Query.equal("dateKey", today),
+      Query.limit(1),
+    ],
+  );
+
+  return res.total > 0;
+};
+
+export const getMutualStreak = async (pairId: string) => {
+  const res = await databases.listDocuments(
+    appwriteConfig.databaseId,
+    appwriteConfig.thinkingPinsCollectionId,
+    [Query.equal("pairId", pairId), Query.limit(500)],
+  );
+
+  const byDate: Record<string, Set<string>> = {};
+
+  for (const doc of res.documents) {
+    if (!byDate[doc.dateKey]) byDate[doc.dateKey] = new Set();
+    byDate[doc.dateKey].add(doc.fromUserId);
+  }
+
+  const mutualDays = Object.entries(byDate)
+    .filter(([_, users]) => users.size >= 2)
+    .map(([date]) => date)
+    .sort()
+    .reverse();
+
+  let streak = 0;
+  let cursor = new Date();
+
+  for (const date of mutualDays) {
+    const d = cursor.toISOString().slice(0, 10);
+    if (date === d) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    } else break;
+  }
+
+  return streak;
+};
