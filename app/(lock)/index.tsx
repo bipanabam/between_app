@@ -42,6 +42,16 @@ const Index = () => {
   const verify = async () => {
     const hash = await hashPasscode(code);
     let storedHash = await SecureStore.getItemAsync("between_passcode_hash");
+
+    // If no stored hash, try getting it from user context
+    if (!storedHash && user?.passcodeHash) {
+      // Store it now
+      await SecureStore.setItemAsync(
+        "between_passcode_hash",
+        user.passcodeHash,
+      );
+      storedHash = user.passcodeHash;
+    }
     if (!storedHash) {
       Alert.alert("Not ready yet — please try again");
       setCode("");

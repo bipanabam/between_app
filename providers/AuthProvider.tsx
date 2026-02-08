@@ -24,7 +24,7 @@ type AuthContextType = {
   loading: boolean;
   isAuthenticated: boolean;
   user?: UserDocument | null;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<UserDocument | null>;
   lockApp: () => void;
   unlockApp: () => Promise<void>;
   status: AppStatus;
@@ -61,7 +61,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAuthenticated: false,
   user: null,
-  refreshUser: async () => {},
+  refreshUser: async () => null,
   lockApp: () => {},
   unlockApp: async () => {},
   status: "loading",
@@ -115,7 +115,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const refreshUser = async () => {
+  const refreshUser = async (): Promise<UserDocument | null> => {
     const userDoc = await ensureUserDocument();
     setUser(userDoc as UserDocument);
     // keep SecureStore synced
@@ -128,6 +128,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Also refresh pair
     const pairDoc = await ensurePairDocument();
     setPair(pairDoc as PairDocument | null);
+
+    return userDoc as UserDocument;
   };
 
   useEffect(() => {

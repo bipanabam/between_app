@@ -51,6 +51,7 @@ const SignUp = () => {
   const [confirmPasscode, setConfirmPasscode] = useState("");
   const [nickname, setNickname] = useState("");
   const [completingOnboarding, setCompletingOnboarding] = useState(false);
+  const [isReturningUser, setIsReturningUser] = useState(false);
   const router = useRouter();
 
   const triggerSuccess = () =>
@@ -61,13 +62,6 @@ const SignUp = () => {
   const haptic = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
-
-  // Skip entire signup if fully onboarded
-  useEffect(() => {
-    if (!loading && isAuthenticated && user?.passcodeHash && user?.nickname) {
-      router.replace("/(tabs)/between");
-    }
-  }, [loading, isAuthenticated, user, step]);
 
   // Restore step when screen loads
   useEffect(() => {
@@ -152,11 +146,21 @@ const SignUp = () => {
 
     try {
       await verifyOtp(otp);
-      // mark OTP verified time
       await SecureStore.setItemAsync("otp_verified_at", Date.now().toString());
-      await refreshUser();
+
+      // Get the fresh user data
+      const freshUser = await refreshUser();
+
       triggerSuccess();
       setOtp("");
+
+      // Check if returning user with complete profile
+      if (freshUser?.passcodeHash && freshUser?.nickname) {
+        await SecureStore.deleteItemAsync("signup_step");
+        return;
+      }
+
+      // New user - continue to passcode setup
       setStep("passcode");
     } catch (e) {
       triggerError();
@@ -220,7 +224,7 @@ const SignUp = () => {
 
       await updateUser({
         passcodeHash: hash,
-        nickname,
+        nickname: nickname.trim(),
       });
       setStep("complete");
       triggerSuccess();
