@@ -33,6 +33,8 @@ export const appwriteConfig = {
   pairStatsCollectionId: "pairstats",
   pairDailyQuestionCollectionId: "pair_daily_questions",
   thinkingPinsCollectionId: "thinking_pings",
+  THINKING_OF_YOU_FUNCTION_ID: "6985b3fa0028092fcb45",
+  MESSAGE_NOTIFICATION_FUNCTION_ID: "69886ec900334c02a80c",
 };
 
 export const client = new Client();
@@ -468,6 +470,22 @@ export const incrementStats = async (
   );
 };
 
+export const sendMessagePush = async (payload: {
+  pairId: string;
+  senderId: string;
+  text: string;
+  type: string;
+}) => {
+  const res = await functions.createExecution(
+    appwriteConfig.MESSAGE_NOTIFICATION_FUNCTION_ID,
+    JSON.stringify(payload),
+  );
+
+  if (res.status !== "completed") {
+    throw new Error("Push function failed");
+  }
+};
+
 export const sendMessage = async ({
   pairId,
   text,
@@ -508,6 +526,15 @@ export const sendMessage = async ({
     ],
   );
   await incrementStats(pair.$id, type);
+
+  // trigger push (fire-and-forget)
+  sendMessagePush({
+    pairId: pair.$id,
+    senderId,
+    text,
+    type,
+  }).catch(() => {});
+
   return msg;
 };
 
@@ -805,7 +832,7 @@ export const sendThinkingOfYouNotification = async (
   payload: ThinkingOfYouPayload,
 ) => {
   const res = await functions.createExecution(
-    "6985b3fa0028092fcb45",
+    appwriteConfig.THINKING_OF_YOU_FUNCTION_ID,
     JSON.stringify(payload),
   );
   if (res.status !== "completed") {

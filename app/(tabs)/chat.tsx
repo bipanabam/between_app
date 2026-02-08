@@ -291,7 +291,7 @@ const Chat = () => {
             <Animated.View
               style={{
                 position: "absolute",
-                top: activeReactionMsg.position.y - 60,
+                top: activeReactionMsg.position.y - 30,
                 left: activeReactionMsg.mine
                   ? undefined
                   : activeReactionMsg.position.x,

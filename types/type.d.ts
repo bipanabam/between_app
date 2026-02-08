@@ -32,6 +32,8 @@ export interface PairDocument extends Models.Document {
   relationshipStartDateProposedBy?: string | null;
   relationshipStartDatePending?: datetime | null;
   relationshipStartDateConfirmed?: boolean;
+
+  lastMessagePushAt?: number | null;
 }
 
 export interface PairInviteDocument extends Models.Document {

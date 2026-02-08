@@ -222,10 +222,10 @@ const SignUp = () => {
         passcodeHash: hash,
         nickname,
       });
-      await refreshUser();
       setStep("complete");
       triggerSuccess();
       await SecureStore.deleteItemAsync("signup_step");
+      await refreshUser();
     } catch (e) {
       // console.log(e);
       triggerError();
@@ -255,7 +255,7 @@ const SignUp = () => {
             <Heart size={24} color="#bc8f97" fill="#bc8f97" />
           </View>
           <Text className="text-2xl font-semibold text-foreground">
-            Between
+            LoveTemple
           </Text>
           <Text className="text-sm font-light text-mutedForeground mt-1">
             Your private space
