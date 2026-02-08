@@ -4,6 +4,13 @@ export default async ({ req, res, error }) => {
   try {
     const { pairId, senderId, text, type } = JSON.parse(req.body);
 
+    // Add validation
+    if (!pairId || !senderId) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Missing required fields" });
+    }
+
     const client = new Client()
       .setEndpoint(process.env.APPWRITE_ENDPOINT)
       .setProject(process.env.APPWRITE_PROJECT_ID)
@@ -13,11 +20,13 @@ export default async ({ req, res, error }) => {
 
     const DB = process.env.DB_ID;
 
+    let pair, partner;
     // get pair
-    if (!pairId) {
-      return res.status(400).json({ ok: false, error: "Missing pairId" });
+    try {
+      pair = await db.getDocument(DB, "pair", pairId);
+    } catch (e) {
+      return res.status(404).json({ ok: false, error: "Pair not found" });
     }
-    const pair = await db.getDocument(DB, "pair", pairId);
 
     const partnerId =
       pair.partnerOne?.$id === senderId
@@ -27,7 +36,14 @@ export default async ({ req, res, error }) => {
     if (!partnerId) {
       return res.status(400).json({ ok: false, error: "Partner not found" });
     }
-    const partner = await db.getDocument(DB, "user", partnerId);
+
+    try {
+      partner = await db.getDocument(DB, "user", partnerId);
+    } catch (e) {
+      return res
+        .status(404)
+        .json({ ok: false, error: "Partner user not found" });
+    }
 
     if (!partner.pushToken) {
       return res.json({ ok: true, skipped: "no token" });
@@ -35,7 +51,12 @@ export default async ({ req, res, error }) => {
 
     // throttle pushes (30 sec window)
     const now = Date.now();
-    if (pair.lastMessagePushAt && now - pair.lastMessagePushAt < 30000) {
+    const lastPushTime = pair.lastMessagePushAt
+      ? typeof pair.lastMessagePushAt === "number"
+        ? pair.lastMessagePushAt
+        : new Date(pair.lastMessagePushAt).getTime()
+      : 0;
+    if (lastPushTime && now - lastPushTime < 30000) {
       return res.json({ ok: true, skipped: "throttled" });
     }
 
@@ -60,7 +81,7 @@ export default async ({ req, res, error }) => {
     }
 
     // send expo push
-    await fetch("https://exp.host/--/api/v2/push/send", {
+    const pushResponse = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -68,8 +89,24 @@ export default async ({ req, res, error }) => {
         title: "💞 From your space",
         body: pushBody,
         data: { pairId },
+        sound: "default",
+        badge: unreadCount, //iOS badge
+        priority: "high",
       }),
     });
+
+    const pushResult = await pushResponse.json();
+
+    // Check for invalid tokens
+    if (pushResult.data?.[0]?.status === "error") {
+      if (pushResult.data[0].details?.error === "DeviceNotRegistered") {
+        // Clear invalid token
+        await db.updateDocument(DB, "user", partnerId, {
+          pushToken: null,
+        });
+      }
+      console.error("Push failed:", pushResult.data[0]);
+    }
 
     // update throttle timestamp
     await db.updateDocument(DB, "pair", pairId, {
@@ -78,6 +115,7 @@ export default async ({ req, res, error }) => {
 
     return res.json({ ok: true });
   } catch (e) {
+    console.error("Push notification error:", e);
     error(e);
     return res.json({ ok: false, error: e.message }, 500);
   }
