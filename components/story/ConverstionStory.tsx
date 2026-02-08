@@ -1,15 +1,31 @@
 import { PairStats } from "@/types/type";
-import { Text, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Text } from "react-native";
 
 const ConversationStory = ({ stats }: { stats: PairStats }) => {
+  const fade = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fade, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
   if (!stats) return null;
 
   return (
-    <View className="bg-card rounded-3xl p-6 shadow-sm mb-5">
-      <Text className="text-xs text-mutedForeground mb-2">Chapter 1</Text>
+    <Animated.View
+      style={{ opacity: fade }}
+      className="bg-card rounded-3xl p-6 shadow-md mb-5"
+    >
+      <Text className="text-xs text-mutedForeground mb-2">
+        Chapter — Conversations
+      </Text>
 
       <Text className="text-lg font-semibold">
-        You’ve been talking a lot 💬
+        You kept the connection alive 💬
       </Text>
 
       <Text className="text-3xl font-bold text-primary mt-2">
@@ -17,7 +33,7 @@ const ConversationStory = ({ stats }: { stats: PairStats }) => {
       </Text>
 
       <Text className="text-mutedForeground mt-1">messages shared here</Text>
-    </View>
+    </Animated.View>
   );
 };
 

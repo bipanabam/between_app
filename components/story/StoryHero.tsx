@@ -1,10 +1,16 @@
 import { formatDate, isAnniversary } from "@/lib/date";
-import { PairDocument } from "@/types/type";
+import { PairDocument, UserDocument } from "@/types/type";
 import { useEffect, useRef } from "react";
 import { Animated, Text, View } from "react-native";
 import PulseHeart from "../PulseHeart";
 
-const StoryHero = ({ pair }: { pair: PairDocument }) => {
+type Props = {
+  pair: PairDocument;
+  partner: UserDocument;
+  me: UserDocument;
+};
+
+const StoryHero = ({ pair, partner, me }: Props) => {
   const start = pair.relationshipStartDate ?? pair.pairFormedAt;
   const glow = useRef(new Animated.Value(0)).current;
   const anniversary = isAnniversary(pair.relationshipStartDate);
@@ -55,6 +61,9 @@ const StoryHero = ({ pair }: { pair: PairDocument }) => {
       <View className="bg-primary/15 p-3 rounded-full mb-3">
         <PulseHeart active />
       </View>
+      <Text className="text-sm text-mutedForeground mt-2 text-center">
+        {partner.nickname} & {me.nickname}
+      </Text>
 
       <Text className="text-xs text-mutedForeground text-center">
         Your story together began
@@ -65,8 +74,7 @@ const StoryHero = ({ pair }: { pair: PairDocument }) => {
       </Text>
 
       <Text className="text-mutedForeground mt-3 text-center leading-6">
-        A quiet space for two — where your messages, moments, and memories grow
-        without noise.
+        A space you’ve been quietly building together.
       </Text>
 
       <Text className="text-mutedForeground/60 text-center mt-3 text-xs italic">

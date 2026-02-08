@@ -46,17 +46,22 @@ const RelationshipClockCounter = ({ pair }: { pair: PairDocument }) => {
 
   return (
     <View className="items-center my-7">
-      <Text className="text-xs text-mutedForeground mb-2">Time together</Text>
+      <Text className="text-xs text-mutedForeground mb-2">
+        Growing side by side
+      </Text>
 
       <Text className="text-5xl font-bold text-primary">{parts.days}</Text>
 
-      <Text className="text-mutedForeground mb-4">days</Text>
+      <Text className="text-mutedForeground mb-4">days shared</Text>
 
       <View className="flex-row gap-6">
         <TimeBox label="hrs" value={parts.hours} />
         <TimeBox label="min" value={parts.minutes} />
         <TimeBox label="sec" value={parts.seconds} />
       </View>
+      <Text className="text-xs text-mutedForeground/50 mt-4 text-center">
+        Every second counts when it’s with the right person
+      </Text>
     </View>
   );
 };

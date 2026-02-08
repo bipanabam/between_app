@@ -9,8 +9,8 @@ const GrowthSentence = ({ stats }: { stats: PairStats }) => {
   let sub = "";
 
   if (stats.messagesCount > 1000) {
-    sentence = "Your conversations never really run out.";
-    sub = "You’ve built a living dialogue together.";
+    sentence = "You two never really run out of things to say.";
+    sub = "Your connection keeps finding new words.";
   } else if (stats.messagesCount > 300) {
     sentence = "You’ve been building something steady.";
     sub = "Consistency is its own kind of love.";
@@ -23,7 +23,7 @@ const GrowthSentence = ({ stats }: { stats: PairStats }) => {
   }
 
   return (
-    <View className="bg-card rounded-3xl p-6 mt-6 shadow-sm border border-border">
+    <View className="bg-card rounded-3xl p-6 mt-6 shadow-md border border-border">
       {/* Header */}
       <View className="flex-row items-center gap-3 mb-3">
         <View className="bg-primary/15 p-2 rounded-xl">
@@ -31,7 +31,7 @@ const GrowthSentence = ({ stats }: { stats: PairStats }) => {
         </View>
 
         <Text className="text-xs text-mutedForeground font-medium">
-          Relationship insight
+          What this says about you two
         </Text>
       </View>
 

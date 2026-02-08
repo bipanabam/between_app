@@ -5,8 +5,10 @@ const MemoryStory = ({ stats }: { stats: PairStats }) => {
   if (!stats) return null;
 
   return (
-    <View className="bg-card rounded-3xl p-6 shadow-sm mb-5">
-      <Text className="text-xs text-mutedForeground mb-2">Chapter 2</Text>
+    <View className="bg-card rounded-3xl p-6 shadow-md mb-5">
+      <Text className="text-xs text-mutedForeground mb-2">
+        Chapter — Moments
+      </Text>
 
       <Text className="text-lg font-semibold">Moments you kept 📸</Text>
 

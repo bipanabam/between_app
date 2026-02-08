@@ -29,7 +29,13 @@ import { isOnline } from "@/lib/helper";
 import { registerForPushToken } from "@/lib/push";
 import { PairStats, QuestionAnswer } from "@/types/type";
 import { useRouter } from "expo-router";
-import { Bookmark, Camera, Heart, MessageCircle } from "lucide-react-native";
+import {
+  Bookmark,
+  Camera,
+  ChevronRight,
+  Heart,
+  MessageCircle,
+} from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -300,9 +306,12 @@ const Between = () => {
           onPress={() => router.push(`/story/${pair.$id}`)}
           className="bg-background rounded-3xl p-6 mt-6 shadow-sm"
         >
-          <Text className="text-mutedForeground mb-4">
-            Moments captured in this space
-          </Text>
+          <View className="flex-row items-center justify-between  mb-4">
+            <Text className="text-mutedForeground">
+              Moments captured in this space
+            </Text>
+            <ChevronRight size={18} color="#8a8075" />
+          </View>
 
           <View className="flex-row justify-between">
             <Stat
