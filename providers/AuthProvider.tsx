@@ -8,7 +8,13 @@ import { registerForPushToken } from "@/lib/push";
 import { PairDocument, UserDocument } from "@/types/type";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { AppState } from "react-native";
 
 type AppStatus =
@@ -28,6 +34,7 @@ type AuthContextType = {
   lockApp: () => void;
   unlockApp: () => Promise<void>;
   status: AppStatus;
+  temporarilyIgnoreAppLock: () => void;
 };
 
 const computeStatus = (
@@ -65,6 +72,7 @@ const AuthContext = createContext<AuthContextType>({
   lockApp: () => {},
   unlockApp: async () => {},
   status: "loading",
+  temporarilyIgnoreAppLock: () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -77,12 +85,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const status = computeStatus(isAuthenticated, user, pair, isLocked);
   const router = useRouter();
 
+  const ignoreNextAppState = useRef(false);
+
   const lockApp = () => {
     setIsLocked(true);
   };
 
   const unlockApp = async () => {
     setIsLocked(false);
+  };
+
+  const temporarilyIgnoreAppLock = () => {
+    ignoreNextAppState.current = true;
+    setTimeout(() => (ignoreNextAppState.current = false), 500); // small buffer
   };
 
   const bootstrap = async () => {
@@ -145,13 +160,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         previousState.match(/inactive|background/) &&
         nextState === "active"
       ) {
-        if (user?.passcodeHash) {
+        if (!ignoreNextAppState.current && user?.passcodeHash) {
           setIsLocked(true);
         }
       }
-
       previousState = nextState;
-      // console.log("APP STATE CHANGED", previousState, "→", nextState);
     });
 
     return () => sub.remove();
@@ -216,6 +229,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         status,
         lockApp,
         unlockApp,
+        temporarilyIgnoreAppLock,
       }}
     >
       {children}

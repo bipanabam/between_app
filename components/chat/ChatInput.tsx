@@ -1,5 +1,7 @@
-import { sendMessage } from "@/lib/appwrite";
+import { sendMediaMessage, sendMessage } from "@/lib/appwrite";
+import { useAuth } from "@/providers/AuthProvider";
 import { MessageDocument } from "@/types/type";
+import * as ImagePicker from "expo-image-picker";
 import { Heart, Image as ImgIcon, Mic } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
@@ -21,6 +23,8 @@ const ChatInput = ({
   onSendMessage,
   onSendError,
 }: Props) => {
+  const { user, temporarilyIgnoreAppLock } = useAuth();
+
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -41,7 +45,7 @@ const ChatInput = ({
       status: "sending",
       replyPreview: replyingTo?.text?.slice(0, 80) ?? null,
       type: "text",
-      clientId: tempId, 
+      clientId: tempId,
     };
     onSendMessage(optimisticMsg);
 
@@ -66,6 +70,53 @@ const ChatInput = ({
     }
   };
 
+  const handlePickImage = async () => {
+    temporarilyIgnoreAppLock(); // prevents lock for this pick
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+      });
+
+      if (res.canceled) return;
+
+      const asset = res.assets[0];
+      const tempId = `temp-${Date.now()}`;
+
+      const optimistic: any = {
+        $id: tempId,
+        $createdAt: new Date().toISOString(),
+        senderId,
+        conversationId: pairId,
+        text: null,
+        type: "image",
+        mediaUrl: asset.uri, // local preview
+        status: "sending",
+        clientId: tempId,
+      };
+
+      onSendMessage(optimistic);
+      try {
+        setSending(true);
+
+        await sendMediaMessage({
+          pairId,
+          fileUri: asset.uri,
+          mime: asset.mimeType ?? "image/jpeg",
+          type: "image",
+          clientId: tempId,
+        });
+      } catch (err) {
+        console.log("Media send failed:", err);
+        onSendError(tempId); // rollback optimistic UI
+      } finally {
+        setSending(false);
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   return (
     <View className="px-4 py-3">
       {/* Reply Preview */}
@@ -85,7 +136,10 @@ const ChatInput = ({
 
       {/* Input Toolbar Row */}
       <View className="flex-row items-center gap-3">
-        <Pressable className="w-10 h-10 rounded-full items-center justify-center bg-card">
+        <Pressable
+          className="w-10 h-10 rounded-full items-center justify-center bg-card"
+          onPress={handlePickImage}
+        >
           <ImgIcon size={20} color="#888" />
         </Pressable>
 

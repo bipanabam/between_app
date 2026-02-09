@@ -51,7 +51,7 @@ export interface PairInviteDocument extends Models.Document {
 export interface MessageDocument extends Models.Document {
   conversationId: string;
   senderId: string | { $id: string };
-  text: string | null;
+  text?: string | null;
   type: "text" | "image" | "audio";
   status?: "sent" | "delivered" | "read" | "sending";
 
@@ -63,18 +63,30 @@ export interface MessageDocument extends Models.Document {
 
   reactions?: string | null; // userId → emoji
   clientId?: string | null;
+
+  mediaUrl?: string | null; //size:255
 }
 
-export type UIMessage = Partial<MessageDocument> & {
+export type ChatMessage = Partial<MessageDocument> & {
   $id: string;
-  text: string | null;
+  $createdAt: string;
   senderId: string;
   conversationId: string;
-  $createdAt: string;
   type: "text" | "image" | "audio";
-  optimistic?: boolean;
-  status?: "sending" | "failed" | "sent";
-  clientId: string | null;
+  status: "sending" | "sent" | "delivered" | "read";
+
+  text?: string | null;
+  mediaUrl?: string | null;
+  clientId?: string | null;
+  replyToId?: string | null;
+  replyPreview?: string | null;
+
+  readAt?: datetime | null;
+  deliveredAt?: datetime | null;
+
+  reactions?: string | null; // userId → emoji
+  clientId?: string | null;
+  showTicks?: boolean;
 };
 
 export interface PairStats extends Models.Document {

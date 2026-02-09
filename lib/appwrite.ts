@@ -7,6 +7,7 @@ import {
   ThinkingOfYouPayload,
   UserDocument,
 } from "@/types/type";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
 import {
@@ -19,6 +20,7 @@ import {
   Permission,
   Query,
   Role,
+  Storage,
 } from "react-native-appwrite";
 
 export const appwriteConfig = {
@@ -35,6 +37,7 @@ export const appwriteConfig = {
   thinkingPinsCollectionId: "thinking_pings",
   THINKING_OF_YOU_FUNCTION_ID: "6985b3fa0028092fcb45",
   MESSAGE_NOTIFICATION_FUNCTION_ID: "69886ec900334c02a80c",
+  storageBucketId: "6989c1f4001e85df4b05",
 };
 
 export const client = new Client();
@@ -47,6 +50,7 @@ client
 
 export const account = new Account(client);
 export const databases = new Databases(client);
+export const storage = new Storage(client);
 
 const avatars = new Avatars(client);
 
@@ -433,11 +437,12 @@ export const getMessages = async (pairId: string) => {
       appwriteConfig.messageCollectionId,
       [
         Query.equal("conversationId", pairId),
-        Query.orderAsc("$createdAt"),
+        Query.orderDesc("$createdAt"),
         Query.limit(50),
       ],
     );
-    return res.documents;
+    const messages = res.documents.reverse();
+    return messages;
   } catch (err) {
     throw err;
   }
@@ -492,12 +497,14 @@ export const sendMessage = async ({
   type = "text",
   replyTo,
   clientId,
+  mediaUrl,
 }: {
   pairId: string;
   text: string;
   type?: "text" | "image" | "audio";
   replyTo?: MessageDocument | null;
   clientId?: string | null;
+  mediaUrl?: string | null;
 }) => {
   const accountInfo = await account.get();
   const senderId = accountInfo.$id;
@@ -517,6 +524,7 @@ export const sendMessage = async ({
       senderId,
       text,
       type,
+      mediaUrl: mediaUrl ?? null,
       status: "sent",
       replyToId: replyTo?.$id ?? null,
       replyPreview: replyTo?.text?.slice(0, 80) ?? null,
@@ -540,6 +548,79 @@ export const sendMessage = async ({
   }).catch(() => {});
 
   return msg;
+};
+
+export const uploadMedia = async (uri: string, mime: string) => {
+  try {
+    const info = await FileSystem.getInfoAsync(uri);
+
+    if (!info.exists) {
+      throw new Error("File does not exist");
+    }
+
+    const ext = mime.split("/")[1]?.split(";")[0] || "jpg";
+
+    const file = {
+      uri: uri,
+      name: `upload-${Date.now()}.${ext}`,
+      type: mime,
+      size: info.size ?? 0,
+    };
+
+    const res = await storage.createFile(
+      appwriteConfig.storageBucketId,
+      ID.unique(),
+      file as any,
+    );
+
+    if (!res?.$id) {
+      throw new Error("Upload returned empty response");
+    }
+
+    return res.$id;
+  } catch (err) {
+    console.error("uploadMedia error:", err);
+    throw err;
+  }
+};
+
+export const getFileUrl = (fileId: string) => {
+  return `${appwriteConfig.endpoint}/storage/buckets/${appwriteConfig.storageBucketId}/files/${fileId}/view?project=${appwriteConfig.projectId}`;
+};
+
+export const sendMediaMessage = async ({
+  pairId,
+  fileUri,
+  mime,
+  type,
+  clientId,
+}: {
+  pairId: string;
+  fileUri: string;
+  mime: string;
+  type: "image" | "audio";
+  clientId: string;
+}) => {
+  try {
+    const fileId = await uploadMedia(fileUri, mime);
+    const mediaUrl = getFileUrl(fileId);
+    console.log(fileId);
+
+    const msg = sendMessage({
+      pairId,
+      text: "",
+      type,
+      clientId,
+      mediaUrl,
+    });
+    return msg;
+  } catch (error) {
+    console.error("sendMediaMessage failed:", error);
+
+    throw new Error(
+      error instanceof Error ? error.message : "Unknown error sending media",
+    );
+  }
 };
 
 export const addReaction = async (

@@ -1,7 +1,14 @@
 import dayjs from "dayjs";
 import { Reply, Send } from "lucide-react-native";
 import { memo, useEffect, useRef, useState } from "react";
-import { Animated, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Animated,
+  Image,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 
 const ChatBubble = memo(
@@ -14,12 +21,13 @@ const ChatBubble = memo(
     myUserId,
     onLongPress,
     isShowingReactions,
-    showTicks,
+    showReceipt,
   }: any) => {
     const swipeRef = useRef<Swipeable>(null);
     const reactionScaleAnim = useRef(new Animated.Value(1)).current;
     const bubbleRef = useRef<View>(null);
     const isSending = message.status === "sending";
+    const isImage = message.type === "image";
     const [showSeen, setShowSeen] = useState(false);
 
     const renderLeftActions = () => (
@@ -34,13 +42,13 @@ const ChatBubble = memo(
       if (message.status === "sending") return null;
 
       if (message.status === "sent")
-        return <Text className="text-xs opacity-50">✓</Text>;
+        return <Text className="text-xs opacity-50">sent</Text>;
 
       if (message.status === "delivered")
-        return <Text className="text-xs opacity-60">✓✓</Text>;
+        return <Text className="text-xs opacity-60">delivered</Text>;
 
       if (message.status === "read")
-        return <Text className="text-xs text-primary">✓✓</Text>;
+        return <Text className="text-xs text-primary">seen</Text>;
 
       return null;
     };
@@ -89,9 +97,10 @@ const ChatBubble = memo(
           <Pressable onLongPress={handleLongPress} delayLongPress={200}>
             <View
               ref={bubbleRef}
-              className={`max-w-[80%] rounded-3xl px-5 py-4 mb-1 ${
+              className={`max-w-[80%] rounded-3xl mb-1 ${
                 mine ? "bg-[#DDE3E6]" : "bg-[#E9DFDB]"
-              } ${isShowingReactions ? "opacity-80" : ""}`}
+              } ${isShowingReactions ? "opacity-80" : ""} 
+               ${isImage ? "p-1" : "px-5 py-4"}`}
               style={{ opacity: isSending ? 0.6 : 1 }}
             >
               {replyPreview && (
@@ -100,13 +109,29 @@ const ChatBubble = memo(
                 </View>
               )}
 
-              <Text className="text-base">{text}</Text>
+              {isImage ? (
+                <View className="relative">
+                  <Image
+                    source={{ uri: message.mediaUrl }}
+                    className="w-56 h-72 rounded-2xl"
+                    resizeMode="cover"
+                  />
+
+                  {isSending && (
+                    <View className="absolute inset-0 items-center justify-center">
+                      <ActivityIndicator size="large" />
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <Text className="text-base">{text}</Text>
+              )}
             </View>
           </Pressable>
           {isSending && (
             <Send size={14} color="#aaa" style={{ marginLeft: 6 }} />
           )}
-          {mine && showTicks && (
+          {mine && showReceipt && (
             <Pressable
               onPress={() => {
                 if (message.status === "read") {
@@ -119,8 +144,8 @@ const ChatBubble = memo(
             </Pressable>
           )}
           {showSeen && message.readAt && (
-            <View className="bg-black/80 px-3 py-1 rounded-full mt-1">
-              <Text className="text-white text-xs">
+            <View className="px-3 py-1 rounded-full mt-1">
+              <Text className="text-mutedForeground text-xs">
                 Seen at {dayjs(message.readAt).format("HH:mm")}
               </Text>
             </View>
@@ -161,6 +186,7 @@ const ChatBubble = memo(
       prev.isShowingReactions === next.isShowingReactions &&
       prev.text === next.text &&
       prev.message.status === next.message.status &&
+      prev.message.mediaUrl === next.message.mediaUrl &&
       prev.showTicks === next.showTicks
     );
   },

@@ -58,6 +58,21 @@ const Chat = () => {
     .reverse()
     .find((m) => getSenderId(m) === user.$id)?.$id;
 
+  // Compute which messages should show ticks
+  const lastUserMsgId = React.useMemo(() => {
+    if (!user) return null;
+
+    const lastUserIndex = messages.map(getSenderId).lastIndexOf(user.$id);
+    if (lastUserIndex === -1) return null;
+
+    const nextMsg = messages[lastUserIndex + 1];
+    if (!nextMsg) {
+      return messages[lastUserIndex].$id;
+    }
+
+    return null;
+  }, [messages, user]);
+
   useEffect(() => {
     if (activeReactionMsg) {
       Animated.spring(scaleAnim, {
@@ -159,59 +174,61 @@ const Chat = () => {
 
   useEffect(() => {
     if (!partner?.pairId || !user) return;
-    const channel = `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.messageCollectionId}.documents`;
+    const timer = setTimeout(() => {
+      const channel = `databases.${appwriteConfig.databaseId}.collections.${appwriteConfig.messageCollectionId}.documents`;
 
-    const unsub = client.subscribe(channel, (event) => {
-      if (
-        !event.events.some(
-          (e) => e.endsWith(".create") || e.endsWith(".update"),
+      const unsub = client.subscribe(channel, (event) => {
+        if (
+          !event.events.some(
+            (e) => e.endsWith(".create") || e.endsWith(".update"),
+          )
         )
-      )
-        return;
+          return;
 
-      const raw = event.payload as MessageDocument;
+        const raw = event.payload as MessageDocument;
 
-      const msg: MessageDocument = {
-        ...raw,
-        senderId:
-          typeof raw.senderId === "string"
-            ? raw.senderId
-            : (raw.senderId?.$id ?? ""),
-        status: raw.status ?? "sent",
-      };
+        const msg: MessageDocument = {
+          ...raw,
+          senderId:
+            typeof raw.senderId === "string"
+              ? raw.senderId
+              : (raw.senderId?.$id ?? ""),
+          status: raw.status ?? "sent",
+        };
 
-      if (msg.conversationId !== partner.pairId) return;
-      // if message is from partner → mark delivered
-      if (msg.senderId !== user.$id && msg.status === "sent") {
-        markDelivered(msg.$id);
-      }
-      // console.log("REALTIME", msg.clientId, msg.$id, msg.status);
+        if (msg.conversationId !== partner.pairId) return;
+        // if message is from partner then mark delivered
+        if (msg.senderId !== user.$id && msg.status === "sent") {
+          markDelivered(msg.$id);
+        }
 
-      setMessages((prev) => {
-        // match optimistic by clientId
-        if (msg.clientId) {
-          const idx = prev.findIndex((m) => m.clientId === msg.clientId);
-          if (idx !== -1) {
+        setMessages((prev) => {
+          // match optimistic by clientId
+          if (msg.clientId) {
+            const idx = prev.findIndex((m) => m.clientId === msg.clientId);
+            if (idx !== -1) {
+              const copy = [...prev];
+              copy[idx] = msg;
+              return copy;
+            }
+          }
+
+          // replace by id if exists
+          const idxById = prev.findIndex((m) => m.$id === msg.$id);
+          if (idxById !== -1) {
             const copy = [...prev];
-            copy[idx] = msg;
+            copy[idxById] = msg;
             return copy;
           }
-        }
 
-        // replace by id if exists
-        const idxById = prev.findIndex((m) => m.$id === msg.$id);
-        if (idxById !== -1) {
-          const copy = [...prev];
-          copy[idxById] = msg;
-          return copy;
-        }
-
-        // otherwise append
-        return [...prev, msg];
+          // otherwise append
+          return [...prev, msg];
+        });
       });
-    });
 
-    return () => unsub();
+      return () => unsub();
+    }, 200); // 200ms delay to let WebSocket connect
+    return () => clearTimeout(timer);
   }, [partner?.pairId, user]);
 
   if (isloading) {
@@ -277,15 +294,11 @@ const Chat = () => {
                   isShowingReactions={
                     activeReactionMsg?.message.$id === item.$id
                   }
-                  showTicks={item.$id === lastMineId}
+                  showReceipt={item.$id === lastUserMsgId} //only show ticks for last message
                 />
               </View>
             );
           }}
-          // keyExtractor={(item) => {
-          //   const sid = getSenderId(item);
-          //   return `${item.$id}-${sid === user?.$id ? user.$id : partner.$id}`;
-          // }}
           keyExtractor={(item) => item.$id}
           contentContainerStyle={{ padding: 12 }}
           recycleItems={false}
