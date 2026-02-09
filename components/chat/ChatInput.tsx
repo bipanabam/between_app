@@ -6,31 +6,61 @@ import { Pressable, Text, TextInput, View } from "react-native";
 
 type Props = {
   pairId: string;
+  senderId: string;
   replyingTo?: MessageDocument | null;
   clearReply?: () => void;
+  onSendMessage: (msg: MessageDocument) => void;
+  onSendError: (tempId: string) => void;
 };
 
-const ChatInput = ({ pairId, replyingTo, clearReply }: Props) => {
+const ChatInput = ({
+  pairId,
+  senderId,
+  replyingTo,
+  clearReply,
+  onSendMessage,
+  onSendError,
+}: Props) => {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
 
   const handleSend = async () => {
     if (!text.trim() || sending) return;
 
+    const messageText = text.trim();
+    // Generate a temp ID
+    const tempId = `temp-${Date.now()}`;
+
+    // Create the optimistic message object
+    const optimisticMsg: any = {
+      $id: tempId,
+      $createdAt: new Date().toISOString(),
+      text: messageText,
+      senderId: senderId,
+      conversationId: pairId,
+      status: "sending",
+      replyPreview: replyingTo?.text?.slice(0, 80) ?? null,
+      type: "text",
+      clientId: tempId, 
+    };
+    onSendMessage(optimisticMsg);
+
+    setText(""); // Clearing input immediately for better UX
+    clearReply?.();
+
     try {
       setSending(true);
 
       await sendMessage({
         pairId,
-        text: text.trim(),
+        text: messageText,
         type: "text",
         replyTo: replyingTo ?? null,
+        clientId: tempId,
       });
-
-      clearReply?.();
-      setText(""); // clear after send
     } catch (err) {
       console.log("Send failed:", err);
+      onSendError(tempId);
     } finally {
       setSending(false);
     }

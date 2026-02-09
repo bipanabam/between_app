@@ -8,6 +8,7 @@ import {
   getMessages,
   getPartner,
   getUser,
+  markDelivered,
   markMessagesRead,
 } from "@/lib/appwrite";
 import { MessageDocument } from "@/types/type";
@@ -53,6 +54,9 @@ const Chat = () => {
 
     return undefined;
   };
+  const lastMineId = [...messages]
+    .reverse()
+    .find((m) => getSenderId(m) === user.$id)?.$id;
 
   useEffect(() => {
     if (activeReactionMsg) {
@@ -143,8 +147,15 @@ const Chat = () => {
   // Read receipts
   useEffect(() => {
     if (!user) return;
-    markMessagesRead(messages, user.$id);
+    markMessagesRead(
+      messages.filter((m) => m.status !== "sending"),
+      user.$id,
+    );
   }, [messages, user]);
+
+  const handleOptimisticSend = (newMsg: MessageDocument) => {
+    setMessages((prev) => [...prev, newMsg]);
+  };
 
   useEffect(() => {
     if (!partner?.pairId || !user) return;
@@ -158,26 +169,45 @@ const Chat = () => {
       )
         return;
 
-      const msg = event.payload as MessageDocument;
+      const raw = event.payload as MessageDocument;
+
+      const msg: MessageDocument = {
+        ...raw,
+        senderId:
+          typeof raw.senderId === "string"
+            ? raw.senderId
+            : (raw.senderId?.$id ?? ""),
+        status: raw.status ?? "sent",
+      };
 
       if (msg.conversationId !== partner.pairId) return;
+      // if message is from partner → mark delivered
+      if (msg.senderId !== user.$id && msg.status === "sent") {
+        markDelivered(msg.$id);
+      }
+      // console.log("REALTIME", msg.clientId, msg.$id, msg.status);
 
       setMessages((prev) => {
-        const existingMsg = prev.find((m) => m.$id === msg.$id);
+        // match optimistic by clientId
+        if (msg.clientId) {
+          const idx = prev.findIndex((m) => m.clientId === msg.clientId);
+          if (idx !== -1) {
+            const copy = [...prev];
+            copy[idx] = msg;
+            return copy;
+          }
+        }
 
-        const normalized = {
-          ...msg,
-          senderId:
-            typeof msg.senderId === "string"
-              ? msg.senderId
-              : msg.senderId?.$id
-                ? msg.senderId.$id
-                : (existingMsg?.senderId ?? ""),
-        };
+        // replace by id if exists
+        const idxById = prev.findIndex((m) => m.$id === msg.$id);
+        if (idxById !== -1) {
+          const copy = [...prev];
+          copy[idxById] = msg;
+          return copy;
+        }
 
-        return prev.some((m) => m.$id === normalized.$id)
-          ? prev.map((m) => (m.$id === normalized.$id ? normalized : m))
-          : [...prev, normalized];
+        // otherwise append
+        return [...prev, msg];
       });
     });
 
@@ -247,14 +277,16 @@ const Chat = () => {
                   isShowingReactions={
                     activeReactionMsg?.message.$id === item.$id
                   }
+                  showTicks={item.$id === lastMineId}
                 />
               </View>
             );
           }}
-          keyExtractor={(item) => {
-            const sid = getSenderId(item);
-            return `${item.$id}-${sid === user?.$id ? "me" : "them"}`;
-          }}
+          // keyExtractor={(item) => {
+          //   const sid = getSenderId(item);
+          //   return `${item.$id}-${sid === user?.$id ? user.$id : partner.$id}`;
+          // }}
+          keyExtractor={(item) => item.$id}
           contentContainerStyle={{ padding: 12 }}
           recycleItems={false}
           initialScrollIndex={messages.length - 1}
@@ -269,8 +301,16 @@ const Chat = () => {
         {partner?.pairId && (
           <ChatInput
             pairId={partner.pairId}
+            senderId={user.$id}
             replyingTo={replyingTo}
             clearReply={() => setReplyingTo(null)}
+            onSendMessage={(msg) => {
+              setMessages((prev) => [...prev, msg]);
+            }}
+            onSendError={(tempId) => {
+              setMessages((prev) => prev.filter((m) => m.$id !== tempId));
+              //Alert.alert("Failed to send message");
+            }}
           />
         )}
 

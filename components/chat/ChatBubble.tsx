@@ -1,5 +1,6 @@
-import { Reply } from "lucide-react-native";
-import { memo, useRef } from "react";
+import dayjs from "dayjs";
+import { Reply, Send } from "lucide-react-native";
+import { memo, useEffect, useRef, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
 
@@ -13,16 +14,41 @@ const ChatBubble = memo(
     myUserId,
     onLongPress,
     isShowingReactions,
+    showTicks,
   }: any) => {
     const swipeRef = useRef<Swipeable>(null);
     const reactionScaleAnim = useRef(new Animated.Value(1)).current;
     const bubbleRef = useRef<View>(null);
+    const isSending = message.status === "sending";
+    const [showSeen, setShowSeen] = useState(false);
 
     const renderLeftActions = () => (
       <View className="justify-center px-4">
         <Reply size={15} />
       </View>
     );
+
+    const renderTicks = () => {
+      if (!mine) return null;
+
+      if (message.status === "sending") return null;
+
+      if (message.status === "sent")
+        return <Text className="text-xs opacity-50">✓</Text>;
+
+      if (message.status === "delivered")
+        return <Text className="text-xs opacity-60">✓✓</Text>;
+
+      if (message.status === "read")
+        return <Text className="text-xs text-primary">✓✓</Text>;
+
+      return null;
+    };
+    useEffect(() => {
+      if (!showSeen) return;
+      const t = setTimeout(() => setShowSeen(false), 2000);
+      return () => clearTimeout(t);
+    }, [showSeen]);
 
     const handleLongPress = () => {
       bubbleRef.current?.measure((x, y, width, height, pageX, pageY) => {
@@ -66,6 +92,7 @@ const ChatBubble = memo(
               className={`max-w-[80%] rounded-3xl px-5 py-4 mb-1 ${
                 mine ? "bg-[#DDE3E6]" : "bg-[#E9DFDB]"
               } ${isShowingReactions ? "opacity-80" : ""}`}
+              style={{ opacity: isSending ? 0.6 : 1 }}
             >
               {replyPreview && (
                 <View className="mb-2 border-l-2 border-primary/40 pl-3 bg-black/5 rounded-md py-1">
@@ -76,6 +103,28 @@ const ChatBubble = memo(
               <Text className="text-base">{text}</Text>
             </View>
           </Pressable>
+          {isSending && (
+            <Send size={14} color="#aaa" style={{ marginLeft: 6 }} />
+          )}
+          {mine && showTicks && (
+            <Pressable
+              onPress={() => {
+                if (message.status === "read") {
+                  setShowSeen((v) => !v);
+                }
+              }}
+              className="mt-1 mr-2 items-end"
+            >
+              {renderTicks()}
+            </Pressable>
+          )}
+          {showSeen && message.readAt && (
+            <View className="bg-black/80 px-3 py-1 rounded-full mt-1">
+              <Text className="text-white text-xs">
+                Seen at {dayjs(message.readAt).format("HH:mm")}
+              </Text>
+            </View>
+          )}
 
           {/* Reaction summary */}
           {Object.keys(reactionCounts).length > 0 && (
@@ -106,11 +155,13 @@ const ChatBubble = memo(
     );
   },
   (prev, next) => {
-    // Only re-render if text, reactions, or specific states change
     return (
+      prev.message.$id === next.message.$id &&
       prev.message.reactions === next.message.reactions &&
       prev.isShowingReactions === next.isShowingReactions &&
-      prev.text === next.text
+      prev.text === next.text &&
+      prev.message.status === next.message.status &&
+      prev.showTicks === next.showTicks
     );
   },
 );

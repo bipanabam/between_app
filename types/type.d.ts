@@ -53,16 +53,29 @@ export interface MessageDocument extends Models.Document {
   senderId: string | { $id: string };
   text: string | null;
   type: "text" | "image" | "audio";
-  status: "sent" | "delivered" | "read";
+  status?: "sent" | "delivered" | "read" | "sending";
 
   replyToId?: string | null;
   replyPreview?: string | null;
 
-  readAt: datetime | null;
-  deliveredAt: datetime | null;
+  readAt?: datetime | null;
+  deliveredAt?: datetime | null;
 
   reactions?: string | null; // userId → emoji
+  clientId?: string | null;
 }
+
+export type UIMessage = Partial<MessageDocument> & {
+  $id: string;
+  text: string | null;
+  senderId: string;
+  conversationId: string;
+  $createdAt: string;
+  type: "text" | "image" | "audio";
+  optimistic?: boolean;
+  status?: "sending" | "failed" | "sent";
+  clientId: string | null;
+};
 
 export interface PairStats extends Models.Document {
   pairId: string;
