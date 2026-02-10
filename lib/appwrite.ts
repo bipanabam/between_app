@@ -604,7 +604,6 @@ export const sendMediaMessage = async ({
   try {
     const fileId = await uploadMedia(fileUri, mime);
     const mediaUrl = getFileUrl(fileId);
-    console.log(fileId);
 
     const msg = sendMessage({
       pairId,

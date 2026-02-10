@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "between_app",
+    "name": "Between",
     "slug": "between_app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -22,7 +22,8 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.bipanabam.between_app",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": ["RECORD_AUDIO"]
     },
     "web": {
       "output": "static",
@@ -43,7 +44,14 @@
         }
       ],
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      // "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow LoveTemple to record voice notes."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

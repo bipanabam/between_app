@@ -1,5 +1,6 @@
 import dayjs from "dayjs";
-import { Reply, Send } from "lucide-react-native";
+import { useAudioPlayer } from "expo-audio";
+import { Pause, Play, Reply, Send } from "lucide-react-native";
 import { memo, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -9,6 +10,7 @@ import {
   Text,
   View,
 } from "react-native";
+
 import { Swipeable } from "react-native-gesture-handler";
 
 const ChatBubble = memo(
@@ -28,7 +30,75 @@ const ChatBubble = memo(
     const bubbleRef = useRef<View>(null);
     const isSending = message.status === "sending";
     const isImage = message.type === "image";
+    const isAudio = message.type === "audio";
+
     const [showSeen, setShowSeen] = useState(false);
+
+    // Audio player setup
+    const player = useAudioPlayer(message.mediaUrl || "");
+
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [duration, setDuration] = useState(0);
+    const [position, setPosition] = useState(0);
+
+    const heartbeatPattern = [
+      8, 9, 10, 12, 18, 26, 18, 12, 10, 9, 8, 8, 9, 11, 16, 22, 16, 11, 9, 8, 8,
+      8,
+    ];
+
+    const waveformRef = useRef(heartbeatPattern);
+
+    // Show duration even before play
+    useEffect(() => {
+      if (!isAudio) return;
+      if (player.duration && duration === 0) {
+        setDuration(player.duration);
+      }
+    }, [player.duration]);
+
+    useEffect(() => {
+      if (!isAudio || !message.mediaUrl) return;
+
+      const interval = setInterval(() => {
+        try {
+          const playing = player.playing;
+          const time = player.currentTime || 0;
+
+          setPosition(time);
+          setIsPlaying(playing);
+
+          if (duration && time >= duration - 0.15) {
+            setIsPlaying(false);
+            setPosition(0);
+          }
+        } catch {}
+      }, 150);
+
+      return () => clearInterval(interval);
+    }, [isAudio, message.mediaUrl, duration]);
+
+    const togglePlay = async () => {
+      if (!message.mediaUrl || isSending) return;
+
+      try {
+        if (player.playing) {
+          player.pause();
+          setIsPlaying(false);
+        } else {
+          await player.play();
+          setIsPlaying(true);
+        }
+      } catch (err) {
+        console.log("Audio playback error:", err);
+      }
+    };
+
+    // Format time in mm:ss
+    const formatTime = (seconds: number) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, "0")}`;
+    };
 
     const renderLeftActions = () => (
       <View className="justify-center px-4">
@@ -109,7 +179,48 @@ const ChatBubble = memo(
                 </View>
               )}
 
-              {isImage ? (
+              {isAudio ? (
+                <Pressable
+                  onPress={togglePlay}
+                  disabled={isSending}
+                  className="flex-row items-center gap-3 min-w-[200px] h-12"
+                >
+                  <View className="w-10 h-10 rounded-full bg-black/10 items-center justify-center">
+                    {isSending ? (
+                      <ActivityIndicator size="small" />
+                    ) : isPlaying ? (
+                      <Pause size={18} color="#333" />
+                    ) : (
+                      <Play size={18} color="#333" />
+                    )}
+                  </View>
+
+                  <View className="flex-1">
+                    <View className="flex-row items-end gap-[2px] mb-1 h-6">
+                      {waveformRef.current.map((h, i) => (
+                        <View
+                          key={i}
+                          className="w-1 rounded-full bg-black/30"
+                          style={{
+                            height: h,
+                            opacity: duration
+                              ? position >
+                                (i / waveformRef.current.length) * duration
+                                ? 1
+                                : 0.35
+                              : 0.35,
+                          }}
+                        />
+                      ))}
+                    </View>
+
+                    {/* Time display */}
+                    <Text className="text-xs opacity-60">
+                      {formatTime(isPlaying ? position : duration || 0)}
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : isImage ? (
                 <View className="relative">
                   <Image
                     source={{ uri: message.mediaUrl }}
@@ -187,7 +298,8 @@ const ChatBubble = memo(
       prev.text === next.text &&
       prev.message.status === next.message.status &&
       prev.message.mediaUrl === next.message.mediaUrl &&
-      prev.showTicks === next.showTicks
+      prev.message.readAt === next.message.readAt &&
+      prev.showReceipt === next.showReceipt
     );
   },
 );
