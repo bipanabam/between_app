@@ -131,3 +131,44 @@ export type ThinkingOfYouPayload = {
   fromName: string;
   // pushToken?: string;
 };
+
+export type reminders = {
+  pairId: string;
+  createdBy: string;
+
+  title: string;
+  note: string | null;
+
+  type: "memory" | "ritual" | "nudge" | "cycle" | "date-night" | "custom";
+  custom;
+
+  scheduleType: "once" | "daily" | "weekly" | "monthly";
+
+  startAt: ISODate;
+  nextTriggerAt: ISODate;
+
+  recurrenceRule: {
+    interval: number;
+    weekdays?: number[];
+    dayOfMonth?: number;
+  };
+
+  notifySelf: boolean;
+  notifyPartner: boolean;
+  private: boolean;
+
+  isActive: boolean;
+  createdAt: ISODate;
+};
+
+export type period_cycle = {
+  pairId;
+  partnerId;
+
+  avgCycleLength: number; //default:28
+  lastStartDate: ISODate;
+
+  reminderOffsets: number[]; //[-2, 0, +2]
+
+  isEnabled: boolean;
+};

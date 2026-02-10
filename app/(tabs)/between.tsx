@@ -243,7 +243,7 @@ const Between = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <Text className="text-center text-mutedForeground/60 mt-6">
+        <Text className="text-center italic text-mutedForeground/60 mt-6">
           Your quiet space together
         </Text>
 
