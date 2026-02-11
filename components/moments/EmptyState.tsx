@@ -1,24 +1,18 @@
-import { Heart, Sparkles } from "lucide-react-native";
+import { Sparkles } from "lucide-react-native";
 import { MotiView } from "moti";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
+import PulseHeart from "../PulseHeart";
 
 interface Props {
   onCreateFirst: () => void;
 }
 
-const CareEmptyState = ({ onCreateFirst }: Props) => {
+const EmptyState = ({ onCreateFirst }: Props) => {
   return (
     <View className="flex-1 items-center justify-center px-6">
       {/* Pulsing Heart */}
-      <MotiView
-        from={{ scale: 1 }}
-        animate={{ scale: [1, 1.1, 1] }}
-        transition={{ loop: true, type: "timing", duration: 4000 }}
-        className="w-24 h-24 rounded-full bg-primary/50 flex items-center justify-center mb-6"
-      >
-        <Heart size={32} color="#bc8f97" />
-      </MotiView>
+      <PulseHeart active />
 
       {/* Sparkles */}
       <MotiView
@@ -51,4 +45,4 @@ const CareEmptyState = ({ onCreateFirst }: Props) => {
   );
 };
 
-export default CareEmptyState;
+export default EmptyState;

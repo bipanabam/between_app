@@ -6,6 +6,7 @@ import {
   PairStats,
   PeriodCycleDocument,
   QuestionAnswer,
+  ReminderDocument,
   ThinkingOfYouPayload,
   UserDocument,
 } from "@/types/type";
@@ -1207,4 +1208,85 @@ export const deleteCycleReminders = async (periodCycleId: string) => {
       ),
     ),
   );
+};
+
+/**
+ * Fetch reminders for the current month
+ */
+export const getCurrentMonthReminders = async (): Promise<
+  ReminderDocument[]
+> => {
+  const me = await account.get();
+  const userId = me.$id;
+
+  // Get user's pair
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) return [];
+
+  const pairId = userDoc.pairId;
+  console.log(pairId);
+
+  // Start and end of current month
+  const startOfMonth = dayjs().startOf("month").startOf("day").toISOString();
+  const endOfMonth = dayjs().endOf("month").endOf("day").toISOString();
+
+  const res = await databases.listDocuments<ReminderDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.remindersCollectionId,
+    [
+      Query.equal("pairId", pairId),
+      Query.equal("isActive", true),
+      Query.greaterThanEqual("nextTriggerAt", startOfMonth),
+      Query.lessThanEqual("nextTriggerAt", endOfMonth),
+      Query.limit(100),
+    ],
+  );
+  return res.documents;
+};
+
+/**
+ * Fetch all active reminders for the current user's pair
+ * Optionally filter by a date range (for calendar)
+ */
+export const getReminders = async (options?: {
+  from?: Date | string;
+  to?: Date | string;
+}): Promise<ReminderDocument[]> => {
+  const me = await account.get();
+  const userId = me.$id;
+
+  // Get user's pair
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) return [];
+
+  const pairId = userDoc.pairId;
+
+  const queries: any[] = [
+    Query.equal("pairId", pairId),
+    Query.equal("isActive", true),
+    Query.limit(100),
+  ];
+
+  // If a date range is provided, filter by nextTriggerAt
+  if (options?.from) {
+    queries.push(
+      Query.greaterThanEqual(
+        "nextTriggerAt",
+        new Date(options.from).toISOString(),
+      ),
+    );
+  }
+  if (options?.to) {
+    queries.push(
+      Query.lessThanEqual("nextTriggerAt", new Date(options.to).toISOString()),
+    );
+  }
+
+  const res = await databases.listDocuments<ReminderDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.remindersCollectionId,
+    queries,
+  );
+
+  return res.documents;
 };

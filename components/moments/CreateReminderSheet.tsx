@@ -1,3 +1,5 @@
+import { NotifyType, RecurrenceType, ReminderType } from "@/lib/reminderConfig";
+import { ReminderDocument } from "@/types/type";
 import { BottomSheetBackdrop, BottomSheetModal } from "@gorhom/bottom-sheet";
 import {
   Calendar,
@@ -18,26 +20,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type {
-  CareReminder,
-  NotifyType,
-  RecurrenceType,
-  ReminderType,
-} from "./CareCard";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onCreate: (reminder: CareReminder) => void;
+  onCreate: (reminder: ReminderDocument) => void;
 }
-
-// const typeOptions: { value: ReminderType; icon: any; label: string }[] = [
-//   { value: "memory", icon: Calendar, label: "Memory" },
-//   { value: "nudge", icon: Heart, label: "Caring nudge" },
-//   { value: "ritual", icon: Flame, label: "Ritual" },
-//   { value: "partner-care", icon: CandlestickChart, label: "Partner care" },
-//   { value: "custom", icon: Leaf, label: "Custom" },
-// ];
 
 export const typeOptions: {
   value: ReminderType;
@@ -123,23 +111,22 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
   const handleCreate = () => {
     if (!title.trim()) return;
 
-    onCreate({
-      id: Date.now().toString(),
-      title: title.trim(),
-      type,
-      recurrence,
-      notify,
-      isPrivate,
-      nextTrigger:
-        recurrence === "daily"
-          ? "Tomorrow"
-          : recurrence === "weekly"
-            ? "Next week"
-            : recurrence === "monthly"
-              ? "Next month"
-              : "Scheduled",
-      emotionalLabel: emotionalLabels[type],
-    });
+    // onCreate({
+    //   title: title.trim(),
+    //   type,
+    //   recurrence,
+    //   notify,
+    //   isPrivate,
+    //   nextTrigger:
+    //     recurrence === "daily"
+    //       ? "Tomorrow"
+    //       : recurrence === "weekly"
+    //         ? "Next week"
+    //         : recurrence === "monthly"
+    //           ? "Next month"
+    //           : "Scheduled",
+    //   emotionalLabel: emotionalLabels[type],
+    // });
 
     // Reset
     setTitle("");

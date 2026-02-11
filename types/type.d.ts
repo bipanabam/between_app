@@ -132,7 +132,7 @@ export type ThinkingOfYouPayload = {
   // pushToken?: string;
 };
 
-export type reminders = {
+export interface ReminderDocument extends Models.Document {
   pairId: string;
   createdBy: string;
 
@@ -156,7 +156,7 @@ export type reminders = {
 
   isActive: boolean;
   createdAt: ISODate;
-};
+}
 
 export type RecurrenceRule = {
   interval: number;

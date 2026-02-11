@@ -6,7 +6,7 @@ type Props = {
   activeTab: "moments" | "calendar";
   onChange: (tab: "moments" | "calendar") => void;
 };
-const CareHeader = ({ activeTab, onChange }: Props) => {
+const MomentsHeader = ({ activeTab, onChange }: Props) => {
   return (
     <View className="px-6  mt-6 pb-3 bg-card">
       <Text className="text-center text-mutedForeground/60 mb-5 italic">
@@ -43,4 +43,4 @@ const CareHeader = ({ activeTab, onChange }: Props) => {
   );
 };
 
-export default CareHeader;
+export default MomentsHeader;

@@ -1,62 +1,61 @@
-import CareCalendar from "@/components/care/Calendar";
-import CareCard, { CareReminder } from "@/components/care/CareCard";
-import CareEmptyState from "@/components/care/CareEmptyState";
-import CareHeader from "@/components/care/CareHeader";
-import CreateReminderSheet from "@/components/care/CreateReminderSheet";
-import CycleCard from "@/components/care/CycleCard";
-import CycleSetupSheet from "@/components/care/CycleSetupSheet";
+import CreateReminderSheet from "@/components/moments/CreateReminderSheet";
+import CycleCard from "@/components/moments/CycleCard";
+import CycleSetupSheet from "@/components/moments/CycleSetupSheet";
+import EmptyState from "@/components/moments/EmptyState";
+import MomentsHeader from "@/components/moments/MomentsHeader";
+import ReminderCard from "@/components/moments/ReminderCard";
 import {
   createCycleReminderRows,
   deleteCycleReminders,
+  getCurrentMonthReminders,
   upsertPeriodCycle,
 } from "@/lib/appwrite";
 
-import { CycleConfig } from "@/types/type";
+import { CycleConfig, ReminderDocument } from "@/types/type";
+import dayjs from "dayjs";
 
+import CalendarReminderSheet from "@/components/moments/CalenderReminderSheet";
+import MomentsCalendar from "@/components/moments/MomentsCalendar";
 import { Plus } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { FlatList, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const sampleReminders: CareReminder[] = [
-  {
-    id: "1",
-    title: "Ask how their day really went",
-    type: "nudge",
-    recurrence: "daily",
-    notify: "me",
-    isPrivate: false,
-    nextTrigger: "This evening",
-    emotionalLabel: "A gentle nudge for your connection",
-  },
-  {
-    id: "2",
-    title: "Our first date anniversary",
-    type: "memory",
-    recurrence: "monthly",
-    notify: "both",
-    isPrivate: false,
-    nextTrigger: "Mar 15",
-    emotionalLabel: "A moment worth remembering",
-  },
-];
-
-const Care = () => {
+const Moments = () => {
   const [tab, setTab] = useState<"moments" | "calendar">("moments");
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [reminders, setReminders] = useState<CareReminder[]>(sampleReminders);
+  const [reminders, setReminders] = useState<ReminderDocument[]>([]);
+
+  const [selectedCalendarDate, setSelectedCalendarDate] =
+    useState<dayjs.Dayjs | null>(null);
+
   const [cycleEnabled, setCycleEnabled] = useState(false);
   const [isCycleSheetOpen, setIsCycleSheetOpen] = useState(false);
   const [cycleSaving, setCycleSaving] = useState(false);
 
   // Open sheet automatically if no reminders
   useEffect(() => {
-    if (tab === "moments" && reminders.length === 0) {
+    if (tab === "moments" && reminders?.length === 0) {
       setIsSheetOpen(true);
     }
-  }, [tab, reminders.length]);
+  }, [tab, reminders?.length]);
 
-  const handleCreate = (newReminder: CareReminder) => {
+  useEffect(() => {
+    const fetchReminders = async () => {
+      try {
+        const data = await getCurrentMonthReminders();
+        console.log(data);
+
+        setReminders(data);
+      } catch (err) {
+        console.log("Failed to fetch reminders", err);
+      }
+    };
+
+    fetchReminders();
+  }, []);
+
+  const handleCreate = (newReminder: ReminderDocument) => {
     setReminders((prev) => [newReminder, ...prev]);
   };
 
@@ -78,7 +77,9 @@ const Care = () => {
       // background work — don't block UI
       if (config.isEnabled) {
         await deleteCycleReminders(cycleDoc.$id);
-        createCycleReminderRows(cycleDoc.$id, config).catch(console.error);
+        await createCycleReminderRows(cycleDoc.$id, config).catch(
+          console.error,
+        );
       } else {
         await deleteCycleReminders(cycleDoc.$id);
       }
@@ -92,21 +93,22 @@ const Care = () => {
   return (
     <SafeAreaView className="flex-1 bg-card">
       <View className="flex-1">
-        <CareHeader activeTab={tab} onChange={setTab} />
+        <MomentsHeader activeTab={tab} onChange={setTab} />
 
         {tab === "moments" ? (
           <>
-            {reminders.length === 0 ? (
-              <CareEmptyState onCreateFirst={() => setIsSheetOpen(true)} />
+            {reminders?.length === 0 ? (
+              <EmptyState onCreateFirst={() => setIsSheetOpen(true)} />
             ) : (
               <>
                 <FlatList
                   data={reminders}
-                  keyExtractor={(i) => i.id}
+                  keyExtractor={(i) => i.$id}
                   contentContainerStyle={{
                     paddingTop: 10,
                     paddingBottom: 100,
                   }}
+                  ItemSeparatorComponent={() => <View className="h-3" />}
                   ListHeaderComponent={
                     <CycleCard
                       enabled={cycleEnabled}
@@ -114,9 +116,9 @@ const Care = () => {
                       onPress={() => setIsCycleSheetOpen(true)}
                     />
                   }
-                  renderItem={({ item }) => (
+                  renderItem={({ item, index }) => (
                     <View className="px-5">
-                      <CareCard reminder={item} />
+                      <ReminderCard reminder={item} index={index} />
                     </View>
                   )}
                 />
@@ -146,7 +148,12 @@ const Care = () => {
                 onPress={() => setIsCycleSheetOpen(true)}
               />
             }
-            renderItem={() => <CareCalendar />}
+            renderItem={() => (
+              <MomentsCalendar
+                reminders={reminders}
+                onDayPress={setSelectedCalendarDate}
+              />
+            )}
           />
         )}
       </View>
@@ -163,8 +170,14 @@ const Care = () => {
         onSave={handleCycleSave}
         saving={cycleSaving}
       />
+
+      <CalendarReminderSheet
+        selectedDate={selectedCalendarDate}
+        reminders={reminders}
+        onClose={() => setSelectedCalendarDate(null)}
+      />
     </SafeAreaView>
   );
 };
 
-export default Care;
+export default Moments;

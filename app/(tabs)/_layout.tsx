@@ -11,12 +11,12 @@ const TabIcon = ({ focused, name, title }: any) => {
       {focused ? (
         <View className="flex-row h-14 w-full min-w-[110px] items-center justify-center rounded-full bg-muted/70">
           <Feather name={name} size={22} color="#bc8f97" />
-          <Text className="text-primary text-base ml-2">{title}</Text>
+          <Text className="text-primary text-base ml-1">{title}</Text>
         </View>
       ) : (
         <View className="flex-row min-w-[45px] h-14 items-center justify-center rounded-full">
           <Feather name={name} size={20} color="#8a8075" />
-          <Text className="text-mutedForeground text-base ml-2">{title}</Text>
+          <Text className="text-mutedForeground text-base ml-1">{title}</Text>
         </View>
       )}
     </View>
@@ -64,12 +64,12 @@ const _Layout = () => {
         }}
       />
       <Tabs.Screen
-        name="care"
+        name="moments"
         options={{
-          title: "Care",
+          title: "Moments",
           headerShown: false,
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name="heart" title="Care" />
+            <TabIcon focused={focused} name="heart" title="Moments" />
           ),
         }}
       />
