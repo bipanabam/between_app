@@ -140,18 +140,15 @@ export type reminders = {
   note: string | null;
 
   type: "memory" | "ritual" | "nudge" | "cycle" | "date-night" | "custom";
-  custom;
 
   scheduleType: "once" | "daily" | "weekly" | "monthly";
+
+  periodCycleId: string | null;
 
   startAt: ISODate;
   nextTriggerAt: ISODate;
 
-  recurrenceRule: {
-    interval: number;
-    weekdays?: number[];
-    dayOfMonth?: number;
-  };
+  recurrenceRule: string | null;
 
   notifySelf: boolean;
   notifyPartner: boolean;
@@ -161,14 +158,28 @@ export type reminders = {
   createdAt: ISODate;
 };
 
-export type period_cycle = {
-  pairId;
-  partnerId;
+export type RecurrenceRule = {
+  interval: number;
+  weekdays?: number[];
+  dayOfMonth?: number;
+};
 
-  avgCycleLength: number; //default:28
-  lastStartDate: ISODate;
+export type CycleConfig = {
+  isEnabled: boolean;
+  lastStartDate: string | null;
+  avgCycleLength: number;
+  offsets: number[];
+  notifyPartner: boolean;
+};
+
+export interface PeriodCycleDocument extends Models.Document {
+  pairId: string;
+  partnerId: string;
+
+  avgCycleLength: number;
+  lastStartDate: string; // ISODate
 
   reminderOffsets: number[]; //[-2, 0, +2]
 
   isEnabled: boolean;
-};
+}

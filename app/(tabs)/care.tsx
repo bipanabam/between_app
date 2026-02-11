@@ -4,9 +4,15 @@ import CareEmptyState from "@/components/care/CareEmptyState";
 import CareHeader from "@/components/care/CareHeader";
 import CreateReminderSheet from "@/components/care/CreateReminderSheet";
 import CycleCard from "@/components/care/CycleCard";
-import CycleSetupSheet, {
-    CycleConfig,
-} from "@/components/care/CycleSetupSheet";
+import CycleSetupSheet from "@/components/care/CycleSetupSheet";
+import {
+  createCycleReminderRows,
+  deleteCycleReminders,
+  upsertPeriodCycle,
+} from "@/lib/appwrite";
+
+import { CycleConfig } from "@/types/type";
+
 import { Plus } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { FlatList, TouchableOpacity, View } from "react-native";
@@ -41,6 +47,7 @@ const Care = () => {
   const [reminders, setReminders] = useState<CareReminder[]>(sampleReminders);
   const [cycleEnabled, setCycleEnabled] = useState(false);
   const [isCycleSheetOpen, setIsCycleSheetOpen] = useState(false);
+  const [cycleSaving, setCycleSaving] = useState(false);
 
   // Open sheet automatically if no reminders
   useEffect(() => {
@@ -53,9 +60,33 @@ const Care = () => {
     setReminders((prev) => [newReminder, ...prev]);
   };
 
-  const handleCycleSave = (config: CycleConfig) => {
-    setCycleEnabled(config.isEnabled);
-    setIsCycleSheetOpen(false);
+  const handleCycleSave = async (config: CycleConfig) => {
+    try {
+      setCycleSaving(true);
+
+      const cycleDoc = await upsertPeriodCycle({
+        avgCycleLength: config.avgCycleLength,
+        lastStartDate: config.lastStartDate!,
+        reminderOffsets: config.offsets,
+        isEnabled: config.isEnabled,
+      });
+
+      setCycleEnabled(config.isEnabled);
+      setIsCycleSheetOpen(false);
+      // setCycleSaving(false); // stop spinner early
+
+      // background work — don't block UI
+      if (config.isEnabled) {
+        await deleteCycleReminders(cycleDoc.$id);
+        createCycleReminderRows(cycleDoc.$id, config).catch(console.error);
+      } else {
+        await deleteCycleReminders(cycleDoc.$id);
+      }
+    } catch (e) {
+      console.log("Cycle save failed", e);
+    } finally {
+      setCycleSaving(false);
+    }
   };
 
   return (
@@ -130,6 +161,7 @@ const Care = () => {
         isOpen={isCycleSheetOpen}
         onClose={() => setIsCycleSheetOpen(false)}
         onSave={handleCycleSave}
+        saving={cycleSaving}
       />
     </SafeAreaView>
   );

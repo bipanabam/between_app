@@ -1,8 +1,10 @@
 import {
+  CycleConfig,
   MessageDocument,
   PairDocument,
   PairInviteDocument,
   PairStats,
+  PeriodCycleDocument,
   QuestionAnswer,
   ThinkingOfYouPayload,
   UserDocument,
@@ -35,6 +37,8 @@ export const appwriteConfig = {
   pairStatsCollectionId: "pairstats",
   pairDailyQuestionCollectionId: "pair_daily_questions",
   thinkingPinsCollectionId: "thinking_pings",
+  remindersCollectionId: "reminders",
+  periodCollectionId: "period_cycle",
   THINKING_OF_YOU_FUNCTION_ID: "6985b3fa0028092fcb45",
   MESSAGE_NOTIFICATION_FUNCTION_ID: "69886ec900334c02a80c",
   storageBucketId: "6989c1f4001e85df4b05",
@@ -1046,4 +1050,161 @@ export const getActiveMood = (user: any) => {
   if (hours > 24) return null;
 
   return user.moodEmoji;
+};
+
+// REMINDERS
+export const upsertPeriodCycle = async (config: {
+  avgCycleLength: number;
+  lastStartDate: string;
+  reminderOffsets: number[];
+  isEnabled: boolean;
+}) => {
+  const me = await account.get();
+  const userId = me.$id;
+
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) throw new Error("No pair");
+
+  const pairId = userDoc.pairId;
+
+  // check existing
+  const res = await databases.listDocuments<PeriodCycleDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.periodCollectionId,
+    [Query.equal("pairId", pairId), Query.limit(1)],
+  );
+
+  if (res.documents.length) {
+    const existing = res.documents[0];
+
+    return databases.updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.periodCollectionId,
+      existing.$id,
+      {
+        ...config,
+        partnerId: userId,
+      },
+    );
+  }
+
+  // create new
+  return databases.createDocument<PeriodCycleDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.periodCollectionId,
+    ID.unique(),
+    {
+      pairId,
+      partnerId: userId,
+      ...config,
+    },
+    [Permission.read(Role.users()), Permission.update(Role.users())],
+  );
+};
+
+export const getPeriodCycle = async () => {
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) return null;
+
+  const res = await databases.listDocuments<PeriodCycleDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.periodCollectionId,
+    [Query.equal("pairId", userDoc.pairId), Query.limit(1)],
+  );
+
+  return res.documents[0] ?? null;
+};
+
+import dayjs from "dayjs";
+
+export const buildCycleReminders = (
+  periodCycleId: string,
+  pairId: string,
+  userId: string,
+  config: {
+    avgCycleLength: number;
+    lastStartDate: string;
+    offsets: number[];
+    notifyPartner: boolean;
+  },
+) => {
+  const base = dayjs(config.lastStartDate);
+  const nextStart = base.add(config.avgCycleLength, "day");
+
+  return config.offsets.map((offset) => {
+    const trigger = nextStart.add(offset, "day");
+
+    return {
+      pairId,
+      createdBy: userId,
+      periodCycleId: periodCycleId,
+
+      title: "Period Cycle care",
+      note: "A softer day for presence and patience",
+
+      type: "cycle",
+      scheduleType: "once",
+
+      startAt: trigger.toISOString(),
+      nextTriggerAt: trigger.toISOString(),
+
+      recurrenceRule: null,
+
+      notifySelf: true,
+      notifyPartner: config.notifyPartner,
+      private: false,
+
+      isActive: true,
+    };
+  });
+};
+
+export const createCycleReminderRows = async (
+  periodCycleId: string,
+  config: CycleConfig,
+) => {
+  const me = await account.get();
+  const userId = me.$id;
+
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) throw new Error("No pair");
+
+  const pairId = userDoc.pairId;
+
+  const rows = buildCycleReminders(periodCycleId, pairId, userId, {
+    avgCycleLength: config.avgCycleLength,
+    lastStartDate: config.lastStartDate!,
+    offsets: config.offsets,
+    notifyPartner: config.notifyPartner,
+  });
+
+  await Promise.all(
+    rows.map((row) =>
+      databases.createDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.remindersCollectionId,
+        ID.unique(),
+        row,
+        [Permission.read(Role.users()), Permission.update(Role.users())],
+      ),
+    ),
+  );
+};
+
+export const deleteCycleReminders = async (periodCycleId: string) => {
+  const res = await databases.listDocuments(
+    appwriteConfig.databaseId,
+    appwriteConfig.remindersCollectionId,
+    [Query.equal("periodCycleId", periodCycleId), Query.limit(100)],
+  );
+
+  await Promise.all(
+    res.documents.map((doc) =>
+      databases.deleteDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.remindersCollectionId,
+        doc.$id,
+      ),
+    ),
+  );
 };
