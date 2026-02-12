@@ -62,6 +62,7 @@ const Moments = () => {
   }, []);
 
   const handleCreate = (newReminder: ReminderDocument) => {
+    console.log(newReminder);
     setReminders((prev) => [newReminder, ...prev]);
   };
 

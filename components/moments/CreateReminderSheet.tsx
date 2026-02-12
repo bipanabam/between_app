@@ -1,21 +1,29 @@
+import { createReminder } from "@/lib/appwrite";
 import {
   emotionalLabels,
   NotifyType,
   RecurrenceType,
   ReminderType,
 } from "@/lib/reminderConfig";
+import { showError, showSuccess } from "@/lib/toast";
 import { ReminderDocument } from "@/types/type";
-import { BottomSheetBackdrop, BottomSheetModal } from "@gorhom/bottom-sheet";
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetScrollView,
+} from "@gorhom/bottom-sheet";
+import dayjs from "dayjs";
 import { Heart, Lock, Moon, Sparkles, Unlock, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import DatePicker from "react-native-date-picker";
 
 interface Props {
   isOpen: boolean;
@@ -39,7 +47,7 @@ export const typeOptions: {
   // },
   {
     value: "nudge",
-    label: "Care nudge",
+    label: "A nudge",
     subtitle: "A small caring reminder",
     icon: Heart,
     defaultRecurrence: "daily",
@@ -51,13 +59,6 @@ export const typeOptions: {
     icon: Moon,
     defaultRecurrence: "weekly",
   },
-  // {
-  //   value: "date-night",
-  //   label: "Date night",
-  //   subtitle: "Time just for you two",
-  //   icon: Flame,
-  //   defaultRecurrence: "weekly",
-  // },
   {
     value: "custom",
     label: "Something else",
@@ -90,8 +91,16 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
   const [notify, setNotify] = useState<NotifyType>("both");
   const [isPrivate, setIsPrivate] = useState(false);
 
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+
+  const [baseDate, setBaseDate] = useState<Date>(new Date());
+  const [baseTime, setBaseTime] = useState<Date>(new Date());
+
+  const [weekday, setWeekday] = useState<number>(dayjs().day());
+  const [monthDay, setMonthDay] = useState<number>(dayjs().date());
+
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) sheetRef.current?.present();
@@ -103,21 +112,67 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
     if (def) setRecurrence(def);
   }, [type]);
 
+  const computeNextTrigger = () => {
+    const now = dayjs();
+    const time = dayjs(baseTime);
+
+    if (recurrence === "once") {
+      return dayjs(baseDate)
+        .hour(time.hour())
+        .minute(time.minute())
+        .toISOString();
+    }
+
+    if (recurrence === "daily") {
+      let next = now.hour(time.hour()).minute(time.minute());
+      if (next.isBefore(now)) next = next.add(1, "day");
+      return next.toISOString();
+    }
+
+    if (recurrence === "weekly") {
+      let next = now.day(weekday).hour(time.hour()).minute(time.minute());
+
+      if (next.isBefore(now)) next = next.add(1, "week");
+      return next.toISOString();
+    }
+
+    if (recurrence === "monthly") {
+      let next = now.date(monthDay).hour(time.hour()).minute(time.minute());
+
+      if (next.isBefore(now)) next = next.add(1, "month");
+      return next.toISOString();
+    }
+  };
+
   const handleCreate = async () => {
     if (!title.trim()) return;
 
-    try {
-      //       const doc = await createReminder({
-      //   title: title.trim(),
-      //   type,
-      //   scheduleType: recurrence,
-      //   notify,
-      //   isPrivate,
-      //   triggerAt: selectedDateTime?.toISOString(),
-      // });
+    const nextTriggerAt = computeNextTrigger();
+    if (!nextTriggerAt) return;
 
-      // onCreate(doc);
-      onClose();
+    try {
+      setSaving(true);
+      const doc = await createReminder({
+        title: title.trim(),
+        note: null,
+
+        type,
+        scheduleType: recurrence,
+
+        nextTriggerAt,
+        startAt: nextTriggerAt,
+
+        weekday,
+        monthDay,
+        baseTime,
+
+        notify,
+        isPrivate,
+
+        periodCycleId: null,
+      });
+
+      onCreate(doc);
 
       // reset
       setTitle("");
@@ -125,8 +180,17 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
       setRecurrence("once");
       setNotify("both");
       setIsPrivate(false);
+
+      showSuccess(
+        "Reminder saved",
+        dayjs(doc.nextTriggerAt).format("MMM D • h:mm A"),
+      );
     } catch (e) {
       console.log("Create reminder failed", e);
+      showError("Could not save reminder", "Please try again");
+    } finally {
+      setSaving(false);
+      onClose();
     }
   };
 
@@ -145,9 +209,9 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
       backgroundStyle={{ borderRadius: 28, backgroundColor: "#f5f5f5" }}
       enableDynamicSizing={false}
     >
-      <ScrollView
+      <BottomSheetScrollView
         contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Header */}
         <View className="flex-row justify-between items-center mb-6">
@@ -161,7 +225,7 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
 
         {/* Title */}
         <TextInput
-          placeholder="What would you like to remember?"
+          placeholder="What would u like to remember? (e.g. Birthday,anniversary,daily tea)"
           value={title}
           onChangeText={setTitle}
           className="bg-card rounded-full px-4 py-3.5 mb-6 text-foreground border border-primary/30 h-12"
@@ -225,6 +289,99 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
           })}
         </View>
 
+        {/* Schedule */}
+        <Text className="text-md text-mutedForeground mb-2 font-normal">
+          When should this happen
+        </Text>
+
+        {/* ONCE */}
+        {recurrence === "once" && (
+          <View className="gap-3 mb-6">
+            <TouchableOpacity
+              onPress={() => setDatePickerOpen(true)}
+              className="bg-card px-4 py-3 rounded-xl"
+            >
+              <Text className="text-sm text-foreground/80">
+                📅 {dayjs(baseDate).format("MMM D, YYYY")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setTimePickerOpen(true)}
+              className="bg-card px-4 py-3 rounded-xl"
+            >
+              <Text className="text-sm text-foreground/80">
+                ⏰ {dayjs(baseTime).format("h:mm A")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* DAILY */}
+        {recurrence === "daily" && (
+          <TouchableOpacity
+            onPress={() => setTimePickerOpen(true)}
+            className="bg-card px-4 py-3 rounded-xl mb-6"
+          >
+            <Text className="text-sm text-foreground/80">
+              Every day at {dayjs(baseTime).format("h:mm A")}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* WEEKLY */}
+        {recurrence === "weekly" && (
+          <View className="gap-3 mb-6">
+            <View className="flex-row flex-wrap gap-2">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => setWeekday(i)}
+                  className={`px-3 py-2 rounded-full ${
+                    weekday === i ? "bg-primary/25" : "bg-accent/60"
+                  }`}
+                >
+                  <Text className="text-sm">{d}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setTimePickerOpen(true)}
+              className="bg-card px-4 py-3 rounded-xl"
+            >
+              <Text className="text-sm">
+                ⏰ {dayjs(baseTime).format("h:mm A")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* MONTHLY */}
+        {recurrence === "monthly" && (
+          <View className="gap-3 mb-6">
+            <TextInput
+              value={String(monthDay)}
+              onChangeText={(t) => setMonthDay(Number(t))}
+              keyboardType="number-pad"
+              className="bg-card px-4 py-3 rounded-xl"
+              placeholder="Day of month (1–31)"
+            />
+
+            <TouchableOpacity
+              onPress={() => setTimePickerOpen(true)}
+              className="bg-card px-4 py-3 rounded-xl"
+            >
+              <Text className="text-sm">
+                ⏰ {dayjs(baseTime).format("h:mm A")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        <Text className="text-xs text-mutedForeground/60 mb-6 italic">
+          Next reminder: {dayjs(computeNextTrigger()).format("MMM D • h:mm A")}
+        </Text>
+
         {/* Notify */}
         <Text className="text-md text-mutedForeground mb-2 font-normal">
           Gently remind
@@ -284,13 +441,42 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
         <Pressable
           onPress={handleCreate}
           disabled={!title.trim()}
-          className={`bg-primary rounded-full py-4 ${!title.trim() ? "opacity-50" : "opacity-100"}`}
+          className={`bg-primary rounded-full items-center py-4 ${!title.trim() ? "opacity-50" : "opacity-100"}`}
         >
-          <Text className="text-white text-center font-medium text-base">
-            Save moment/reminder
-          </Text>
+          {saving ? (
+            <View className="flex-row gap-2 items-center">
+              <Text className="text-white font-medium">Setting</Text>
+
+              <ActivityIndicator color="white" />
+            </View>
+          ) : (
+            <Text className="text-white font-medium">Set this reminder</Text>
+          )}
         </Pressable>
-      </ScrollView>
+        <DatePicker
+          modal
+          mode="date"
+          open={datePickerOpen}
+          date={baseDate}
+          onConfirm={(d) => {
+            setBaseDate(d);
+            setDatePickerOpen(false);
+          }}
+          onCancel={() => setDatePickerOpen(false)}
+        />
+
+        <DatePicker
+          modal
+          mode="time"
+          open={timePickerOpen}
+          date={baseTime}
+          onConfirm={(t) => {
+            setBaseTime(t);
+            setTimePickerOpen(false);
+          }}
+          onCancel={() => setTimePickerOpen(false)}
+        />
+      </BottomSheetScrollView>
     </BottomSheetModal>
   );
 };

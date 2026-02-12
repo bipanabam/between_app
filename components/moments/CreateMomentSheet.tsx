@@ -14,6 +14,7 @@ import DatePicker from "react-native-date-picker";
 
 import { CalendarIcon, X } from "lucide-react-native";
 import {
+  ActivityIndicator,
   Animated,
   Image,
   Modal,
@@ -340,9 +341,15 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
             className="bg-primary rounded-full py-4 items-center"
             style={{ opacity: title.trim() && !saving ? 1 : 0.4 }}
           >
-            <Text className="text-white text-sm font-medium">
-              {saving ? "Saving…" : "Save this moment"}
-            </Text>
+            {saving ? (
+              <View className="flex-row gap-2 items-center">
+                <Text className="text-white font-medium">Saving</Text>
+
+                <ActivityIndicator color="white" />
+              </View>
+            ) : (
+              <Text className="text-white font-medium">Save this moment</Text>
+            )}
           </TouchableOpacity>
         </BottomSheetScrollView>
       </BottomSheetModal>

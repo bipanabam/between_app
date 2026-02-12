@@ -155,13 +155,32 @@ export interface ReminderDocument extends Models.Document {
   private: boolean;
 
   isActive: boolean;
-  createdAt: ISODate;
 }
 
 export type RecurrenceRule = {
-  interval: number;
-  weekdays?: number[];
-  dayOfMonth?: number;
+  time: string; // "HH:mm"
+  weekday?: number; // 0–6 (weekly)
+  dayOfMonth?: number; // 1–31 (monthly)
+};
+
+export type CreateReminderInput = {
+  title: string;
+  note?: string | null;
+
+  type: ReminderType;
+  scheduleType: RecurrenceType;
+
+  nextTriggerAt: string;
+  startAt: string;
+
+  weekday?: number;
+  monthDay?: number;
+  baseTime: Date;
+
+  notify: NotifyType;
+  isPrivate: boolean;
+
+  periodCycleId?: string | null;
 };
 
 export type CycleConfig = {

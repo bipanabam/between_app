@@ -7,6 +7,10 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "./global.css";
+import { toastConfig } from "@/components/AppToast";
+
+
+
 
 Notifications.setNotificationHandler({
   handleNotification:
@@ -78,7 +82,7 @@ export default function RootLayout() {
         <BottomSheetModalProvider>
           <>
             <RootLayoutNav />
-            <Toast />  
+            <Toast config={toastConfig} />
           </>
         </BottomSheetModalProvider>
       </AuthProvider>

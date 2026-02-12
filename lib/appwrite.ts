@@ -1,4 +1,5 @@
 import {
+  CreateReminderInput,
   CycleConfig,
   MessageDocument,
   MomentsDocument,
@@ -1394,5 +1395,74 @@ export const createReminderForMoment = async (
       isActive: true,
     },
     [Permission.read(Role.users()), Permission.update(Role.user(userId))],
+  );
+};
+
+// REMINDERS
+export const createReminder = async (
+  input: CreateReminderInput,
+): Promise<ReminderDocument> => {
+  const {
+    title,
+    note,
+    type,
+    scheduleType,
+    nextTriggerAt,
+    startAt,
+    weekday,
+    monthDay,
+    baseTime,
+    notify,
+    isPrivate,
+    periodCycleId,
+  } = input;
+
+  const me = await account.get();
+  const userId = me.$id;
+
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) throw new Error("No pair");
+
+  const timeStr = dayjs(baseTime).format("HH:mm");
+
+  const recurrenceRule =
+    scheduleType === "once"
+      ? null
+      : JSON.stringify({
+          time: timeStr,
+          weekday: scheduleType === "weekly" ? weekday : undefined,
+          dayOfMonth: scheduleType === "monthly" ? monthDay : undefined,
+        });
+
+  const notifySelf = notify === "me" || notify === "both";
+  const notifyPartner = notify === "partner" || notify === "both";
+
+  return databases.createDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.remindersCollectionId,
+    ID.unique(),
+    {
+      pairId: userDoc.pairId,
+      createdBy: userId,
+
+      title: title.trim(),
+      note: note ?? null,
+
+      type: input.type,
+      scheduleType,
+
+      periodCycleId: periodCycleId ?? null,
+
+      startAt,
+      nextTriggerAt,
+
+      recurrenceRule,
+
+      notifySelf,
+      notifyPartner,
+      private: isPrivate,
+
+      isActive: true,
+    },
   );
 };
