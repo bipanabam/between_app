@@ -7,6 +7,7 @@ import CreateReminderSheet from "@/components/moments/CreateReminderSheet";
 import CycleCard from "@/components/moments/CycleCard";
 import CycleSetupSheet from "@/components/moments/CycleSetupSheet";
 import EmptyState from "@/components/moments/EmptyState";
+import MomentCard from "@/components/moments/MomentCard";
 import MomentsCalendar from "@/components/moments/MomentsCalendar";
 import MomentsHeader from "@/components/moments/MomentsHeader";
 import ReminderCard from "@/components/moments/ReminderCard";
@@ -15,19 +16,21 @@ import {
   createCycleReminderRows,
   deleteCycleReminders,
   getCurrentMonthReminders,
+  getMomentsWithReminders,
   upsertPeriodCycle,
 } from "@/lib/appwrite";
 
-import { CycleConfig, ReminderDocument } from "@/types/type";
+import { CycleConfig, MomentsDocument, ReminderDocument } from "@/types/type";
 import dayjs from "dayjs";
 
 import React, { useEffect, useState } from "react";
-import { FlatList, View } from "react-native";
+import { FlatList, SectionList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Moments = () => {
   const [tab, setTab] = useState<"moments" | "calendar">("moments");
   const [reminders, setReminders] = useState<ReminderDocument[]>([]);
+  const [moments, setMoments] = useState<MomentsDocument[]>([]);
 
   const [selectedCalendarDate, setSelectedCalendarDate] =
     useState<dayjs.Dayjs | null>(null);
@@ -47,18 +50,17 @@ const Moments = () => {
   // }, [tab, reminders?.length]);
 
   useEffect(() => {
-    const fetchReminders = async () => {
-      try {
-        const data = await getCurrentMonthReminders();
-        console.log(data);
+    const load = async () => {
+      const [r, m] = await Promise.all([
+        getCurrentMonthReminders(),
+        getMomentsWithReminders(),
+      ]);
 
-        setReminders(data);
-      } catch (err) {
-        console.log("Failed to fetch reminders", err);
-      }
+      setReminders(r);
+      setMoments(m);
     };
 
-    fetchReminders();
+    load();
   }, []);
 
   const handleCreate = (newReminder: ReminderDocument) => {
@@ -112,6 +114,23 @@ const Moments = () => {
     },
   ];
 
+  const upcomingMoments = [...moments].sort((a, b) =>
+    a.momentDate.localeCompare(b.momentDate),
+  );
+
+  const sections = [
+    {
+      title: "Upcoming moments",
+      type: "moments",
+      data: upcomingMoments,
+    },
+    {
+      title: "Care reminders",
+      type: "reminders",
+      data: reminders,
+    },
+  ].filter((s) => s.data.length > 0);
+
   return (
     <SafeAreaView className="flex-1 bg-card">
       <View className="flex-1">
@@ -123,13 +142,14 @@ const Moments = () => {
               <EmptyState onCreateFirst={() => setIsSheetOpen(true)} />
             ) : (
               <>
-                <FlatList
-                  data={reminders}
-                  keyExtractor={(i) => i.$id}
+                <SectionList
+                  sections={sections}
+                  keyExtractor={(item: any) => item.$id}
                   contentContainerStyle={{
                     paddingTop: 10,
-                    paddingBottom: 100,
+                    paddingBottom: 120,
                   }}
+                  stickySectionHeadersEnabled={false}
                   ItemSeparatorComponent={() => <View className="h-3" />}
                   ListHeaderComponent={
                     <CycleCard
@@ -138,11 +158,28 @@ const Moments = () => {
                       onPress={() => setIsCycleSheetOpen(true)}
                     />
                   }
-                  renderItem={({ item, index }) => (
-                    <View className="px-5">
-                      <ReminderCard reminder={item} index={index} />
+                  renderSectionHeader={({ section }) => (
+                    <View className="px-5 mt-4 mb-2">
+                      <Text className="text-xs text-mutedForeground/60 tracking-wide">
+                        {section.title}
+                      </Text>
                     </View>
                   )}
+                  renderItem={({ item, index, section }) => {
+                    if (section.type === "moments") {
+                      return (
+                        <View className="px-5">
+                          <MomentCard moment={item} index={index} />
+                        </View>
+                      );
+                    }
+
+                    return (
+                      <View className="px-5">
+                        <ReminderCard reminder={item} index={index} />
+                      </View>
+                    );
+                  }}
                 />
               </>
             )}

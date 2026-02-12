@@ -1220,7 +1220,6 @@ export const getCurrentMonthReminders = async (): Promise<
   if (!userDoc.pairId) return [];
 
   const pairId = userDoc.pairId;
-  console.log(pairId);
 
   // Start and end of current month
   const startOfMonth = dayjs().startOf("month").startOf("day").toISOString();
@@ -1232,11 +1231,43 @@ export const getCurrentMonthReminders = async (): Promise<
     [
       Query.equal("pairId", pairId),
       Query.equal("isActive", true),
+      Query.notEqual("type", "cycle"),
       Query.greaterThanEqual("nextTriggerAt", startOfMonth),
       Query.lessThanEqual("nextTriggerAt", endOfMonth),
       Query.limit(100),
     ],
   );
+  return res.documents;
+};
+
+export const getMomentsWithReminders = async (): Promise<MomentsDocument[]> => {
+  // Get current user
+  const me = await account.get();
+  const userId = me.$id;
+
+  // Get user's pair
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) return [];
+
+  const pairId = userDoc.pairId;
+
+  // Start and end of current month
+  const startOfMonth = dayjs().startOf("month").startOf("day").toISOString();
+  const endOfMonth = dayjs().endOf("month").endOf("day").toISOString();
+
+  // Query moments where hasReminder is true and momentDate is within this month
+  const res = await databases.listDocuments<MomentsDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.momentsCollectionId,
+    [
+      Query.equal("pairId", pairId),
+      Query.equal("hasReminder", true),
+      Query.greaterThanEqual("momentDate", startOfMonth),
+      Query.lessThanEqual("momentDate", endOfMonth),
+      Query.limit(100),
+    ],
+  );
+
   return res.documents;
 };
 
