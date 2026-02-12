@@ -139,7 +139,7 @@ export interface ReminderDocument extends Models.Document {
   title: string;
   note: string | null;
 
-  type: "memory" | "ritual" | "nudge" | "cycle" | "date-night" | "custom";
+  type: "nudge" | "ritual" | "custom" | "cycle";
 
   scheduleType: "once" | "daily" | "weekly" | "monthly";
 
@@ -182,4 +182,29 @@ export interface PeriodCycleDocument extends Models.Document {
   reminderOffsets: number[]; //[-2, 0, +2]
 
   isEnabled: boolean;
+}
+
+export interface MomentsDocument extends Models.Document {
+  pairId: string;
+  createdBy: string;
+
+  type:
+    | "date-night"
+    | "memory"
+    | "anniversary"
+    | "milestone"
+    | "trip"
+    | "relationship-start";
+
+  title: string;
+  note: string | null;
+
+  momentDate: datetime;
+
+  hasReminder: boolean;
+  reminderConfig: string | null;
+
+  mediaUrl: string | null;
+
+  isPrivate: boolean;
 }

@@ -1,19 +1,11 @@
 import {
-  Calendar,
-  Flame,
   HandHeart,
   Heart,
   Leaf,
-  Moon,
+  Moon
 } from "lucide-react-native";
 
-export type ReminderType =
-  | "memory"
-  | "nudge"
-  | "ritual"
-  | "date-night"
-  | "custom"
-  | "cycle";
+export type ReminderType = "nudge" | "ritual" | "custom" | "cycle";
 
 export type RecurrenceType = "once" | "daily" | "weekly" | "monthly";
 
@@ -30,14 +22,6 @@ export const typeConfig: Record<
     gradient: [string, string];
   }
 > = {
-  memory: {
-    icon: Calendar,
-    label: "Memory",
-    pastel: "#e8f1f5",
-    iconColor: "#7ea4b6",
-    gradient: ["#e8f1f5", "#d0e4f0"],
-  },
-
   nudge: {
     icon: Heart,
     label: "Caring nudge",
@@ -53,15 +37,6 @@ export const typeConfig: Record<
     iconColor: "#9b8bb9",
     gradient: ["#f2eff9", "#e6e1f5"],
   },
-
-  "date-night": {
-    icon: Flame,
-    label: "Date night",
-    pastel: "#fff1e6",
-    iconColor: "#d19a66",
-    gradient: ["#fff1e6", "#ffe6d8"],
-  },
-
   custom: {
     icon: Leaf,
     label: "Custom",
@@ -91,4 +66,11 @@ export const notifyLabel: Record<NotifyType, string> = {
   me: "Just you",
   partner: "Your partner",
   both: "Both of you",
+};
+
+export const emotionalLabels: Record<ReminderType, string> = {
+  nudge: "A gentle reminder",
+  ritual: "A repeating connection habit",
+  custom: "Something meaningful you want to remember",
+  cycle: "A gentle partner care window",
 };

@@ -1,6 +1,7 @@
 import {
   CycleConfig,
   MessageDocument,
+  MomentsDocument,
   PairDocument,
   PairInviteDocument,
   PairStats,
@@ -10,6 +11,7 @@ import {
   ThinkingOfYouPayload,
   UserDocument,
 } from "@/types/type";
+import dayjs from "dayjs";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
@@ -40,6 +42,7 @@ export const appwriteConfig = {
   thinkingPinsCollectionId: "thinking_pings",
   remindersCollectionId: "reminders",
   periodCollectionId: "period_cycle",
+  momentsCollectionId: "moments",
   THINKING_OF_YOU_FUNCTION_ID: "6985b3fa0028092fcb45",
   MESSAGE_NOTIFICATION_FUNCTION_ID: "69886ec900334c02a80c",
   storageBucketId: "6989c1f4001e85df4b05",
@@ -82,12 +85,6 @@ export const verifyOtp = async (otp: string) => {
 
   if (!userId || !otp) throw new Error("Missing token data");
 
-  // deleting session if exists — ignore error if none
-  try {
-    await account.deleteSession("current");
-  } catch {
-    // no active session — ok
-  }
   try {
     await account.createSession(userId, otp);
 
@@ -169,7 +166,7 @@ export const updateUser = async (data: {
 
 // pair and pairInvite
 const generateCode = () => {
-  return `BET-${Math.floor(1000 + Math.random() * 9000)}`;
+  return `LT-${Math.floor(1000 + Math.random() * 9000)}`;
 };
 
 export const createPairAndInvite = async () => {
@@ -1053,7 +1050,7 @@ export const getActiveMood = (user: any) => {
   return user.moodEmoji;
 };
 
-// REMINDERS
+// PERIOD CYCLES
 export const upsertPeriodCycle = async (config: {
   avgCycleLength: number;
   lastStartDate: string;
@@ -1115,8 +1112,6 @@ export const getPeriodCycle = async () => {
 
   return res.documents[0] ?? null;
 };
-
-import dayjs from "dayjs";
 
 export const buildCycleReminders = (
   periodCycleId: string,
@@ -1289,4 +1284,115 @@ export const getReminders = async (options?: {
   );
 
   return res.documents;
+};
+
+// MOMENTS
+export const createMoment = async (data: {
+  type: MomentsDocument["type"];
+  title: string;
+  note?: string | null;
+  momentDate: string;
+  hasReminder: boolean;
+  reminderConfig?: any;
+  isPrivate: boolean;
+  mediaUrl?: string | null;
+}): Promise<MomentsDocument> => {
+  const me = await account.get();
+  const userId = me.$id;
+
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) throw new Error("No pair");
+
+  const res = await databases.createDocument<MomentsDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.momentsCollectionId,
+    ID.unique(),
+    {
+      pairId: userDoc.pairId,
+      createdBy: userId,
+
+      type: data.type,
+      title: data.title,
+      note: data.note ?? null,
+      momentDate: data.momentDate,
+
+      hasReminder: data.hasReminder,
+      reminderConfig: data.reminderConfig
+        ? JSON.stringify(data.reminderConfig)
+        : null,
+
+      mediaUrl: data.mediaUrl ?? null,
+
+      isPrivate: data.isPrivate,
+    },
+    [Permission.read(Role.users()), Permission.update(Role.user(userId))],
+  );
+
+  return res;
+};
+
+export const createMomentWithMedia = async ({
+  fileUri,
+  mime,
+  ...momentData
+}: {
+  fileUri?: string | null;
+  mime?: string | null;
+} & Omit<Parameters<typeof createMoment>[0], "mediaUrl">) => {
+  let mediaUrl: string | null = null;
+
+  if (fileUri && mime) {
+    const fileId = await uploadMedia(fileUri, mime);
+    mediaUrl = getFileUrl(fileId);
+  }
+
+  return createMoment({
+    ...momentData,
+    mediaUrl,
+  });
+};
+
+export const createReminderForMoment = async (
+  momentId: string,
+  config: {
+    triggerAt: string;
+    notifyPartner: boolean;
+  },
+) => {
+  const me = await account.get();
+  const userId = me.$id;
+
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) throw new Error("No pair");
+
+  return databases.createDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.remindersCollectionId,
+    ID.unique(),
+    {
+      pairId: userDoc.pairId,
+      createdBy: userId,
+
+      title: "Moment reminder",
+      note: null,
+
+      type: "nudge",
+      scheduleType: "once",
+
+      momentId,
+      periodCycleId: null,
+
+      startAt: config.triggerAt,
+      nextTriggerAt: config.triggerAt,
+
+      recurrenceRule: null,
+
+      notifySelf: true,
+      notifyPartner: config.notifyPartner,
+      private: false,
+
+      isActive: true,
+    },
+    [Permission.read(Role.users()), Permission.update(Role.user(userId))],
+  );
 };

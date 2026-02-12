@@ -37,7 +37,7 @@ const EmptyState = ({ onCreateFirst }: Props) => {
 
       <TouchableOpacity
         onPress={onCreateFirst}
-        className="bg-pink-200 px-6 py-3 rounded-xl"
+        className="bg-primary/80 px-6 py-3 rounded-xl"
       >
         <Text className="text-white text-sm">Plant your first care moment</Text>
       </TouchableOpacity>

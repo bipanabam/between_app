@@ -1,9 +1,16 @@
+import FloatingActionMenu, {
+  FloatingActionItem,
+} from "@/components/FloatingActionMenu";
+import CalendarReminderSheet from "@/components/moments/CalenderReminderSheet";
+import CreateMomentSheet from "@/components/moments/CreateMomentSheet";
 import CreateReminderSheet from "@/components/moments/CreateReminderSheet";
 import CycleCard from "@/components/moments/CycleCard";
 import CycleSetupSheet from "@/components/moments/CycleSetupSheet";
 import EmptyState from "@/components/moments/EmptyState";
+import MomentsCalendar from "@/components/moments/MomentsCalendar";
 import MomentsHeader from "@/components/moments/MomentsHeader";
 import ReminderCard from "@/components/moments/ReminderCard";
+
 import {
   createCycleReminderRows,
   deleteCycleReminders,
@@ -14,31 +21,30 @@ import {
 import { CycleConfig, ReminderDocument } from "@/types/type";
 import dayjs from "dayjs";
 
-import CalendarReminderSheet from "@/components/moments/CalenderReminderSheet";
-import MomentsCalendar from "@/components/moments/MomentsCalendar";
-import { Plus } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { FlatList, TouchableOpacity, View } from "react-native";
+import { FlatList, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Moments = () => {
   const [tab, setTab] = useState<"moments" | "calendar">("moments");
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [reminders, setReminders] = useState<ReminderDocument[]>([]);
 
   const [selectedCalendarDate, setSelectedCalendarDate] =
     useState<dayjs.Dayjs | null>(null);
 
   const [cycleEnabled, setCycleEnabled] = useState(false);
-  const [isCycleSheetOpen, setIsCycleSheetOpen] = useState(false);
   const [cycleSaving, setCycleSaving] = useState(false);
 
+  const [isCycleSheetOpen, setIsCycleSheetOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isMomentSheetOpen, setMomentSheetOpen] = useState(false);
+
   // Open sheet automatically if no reminders
-  useEffect(() => {
-    if (tab === "moments" && reminders?.length === 0) {
-      setIsSheetOpen(true);
-    }
-  }, [tab, reminders?.length]);
+  // useEffect(() => {
+  //   if (tab === "moments" && reminders?.length === 0) {
+  //     setIsSheetOpen(true);
+  //   }
+  // }, [tab, reminders?.length]);
 
   useEffect(() => {
     const fetchReminders = async () => {
@@ -90,6 +96,21 @@ const Moments = () => {
     }
   };
 
+  const actionItems: FloatingActionItem[] = [
+    {
+      label: "Add moment",
+      onPress: () => setMomentSheetOpen(true),
+    },
+    {
+      label: "Add reminder",
+      onPress: () => setIsSheetOpen(true),
+    },
+    {
+      label: "Period care",
+      onPress: () => setIsCycleSheetOpen(true),
+    },
+  ];
+
   return (
     <SafeAreaView className="flex-1 bg-card">
       <View className="flex-1">
@@ -122,14 +143,6 @@ const Moments = () => {
                     </View>
                   )}
                 />
-
-                {/* Floating Button */}
-                <TouchableOpacity
-                  onPress={() => setIsSheetOpen(true)}
-                  className="absolute bottom-28 right-6 bg-primary w-14 h-14 rounded-full items-center justify-center shadow-lg"
-                >
-                  <Plus size={24} color="white" />
-                </TouchableOpacity>
               </>
             )}
           </>
@@ -156,6 +169,13 @@ const Moments = () => {
             )}
           />
         )}
+        {/* Floating Action Menu */}
+        <FloatingActionMenu
+          items={actionItems}
+          bottom={110}
+          right={24}
+          fabStyle={{ backgroundColor: "#bc8f97" }}
+        />
       </View>
       {/* Sheets */}
       <CreateReminderSheet
@@ -169,6 +189,12 @@ const Moments = () => {
         onClose={() => setIsCycleSheetOpen(false)}
         onSave={handleCycleSave}
         saving={cycleSaving}
+      />
+
+      <CreateMomentSheet
+        isOpen={isMomentSheetOpen}
+        onClose={() => setMomentSheetOpen(false)}
+        onSaved={(m) => console.log("moment created")}
       />
 
       <CalendarReminderSheet

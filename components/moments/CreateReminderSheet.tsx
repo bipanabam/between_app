@@ -1,16 +1,12 @@
-import { NotifyType, RecurrenceType, ReminderType } from "@/lib/reminderConfig";
+import {
+  emotionalLabels,
+  NotifyType,
+  RecurrenceType,
+  ReminderType,
+} from "@/lib/reminderConfig";
 import { ReminderDocument } from "@/types/type";
 import { BottomSheetBackdrop, BottomSheetModal } from "@gorhom/bottom-sheet";
-import {
-  Calendar,
-  Flame,
-  Heart,
-  Lock,
-  Moon,
-  Sparkles,
-  Unlock,
-  X,
-} from "lucide-react-native";
+import { Heart, Lock, Moon, Sparkles, Unlock, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
@@ -34,38 +30,38 @@ export const typeOptions: {
   icon: any;
   defaultRecurrence: RecurrenceType;
 }[] = [
-  {
-    value: "memory",
-    label: "Memory date",
-    subtitle: "Birthday, anniversary, special day",
-    icon: Calendar,
-    defaultRecurrence: "monthly",
-  },
+  // {
+  //   value: "memory",
+  //   label: "Memory",
+  //   subtitle: "A date that matters (e.g. Birthday, anniversary, special day)",
+  //   icon: Calendar,
+  //   defaultRecurrence: "monthly",
+  // },
   {
     value: "nudge",
     label: "Care nudge",
-    subtitle: "Small loving reminder",
+    subtitle: "A small caring reminder",
     icon: Heart,
     defaultRecurrence: "daily",
   },
   {
     value: "ritual",
     label: "Connection ritual",
-    subtitle: "A repeating moment together",
+    subtitle: "A repeating moment",
     icon: Moon,
     defaultRecurrence: "weekly",
   },
-  {
-    value: "date-night",
-    label: "Date night",
-    subtitle: "Time just for you two",
-    icon: Flame,
-    defaultRecurrence: "weekly",
-  },
+  // {
+  //   value: "date-night",
+  //   label: "Date night",
+  //   subtitle: "Time just for you two",
+  //   icon: Flame,
+  //   defaultRecurrence: "weekly",
+  // },
   {
     value: "custom",
     label: "Something else",
-    subtitle: "Your own kind of care",
+    subtitle: "Something personal",
     icon: Sparkles,
     defaultRecurrence: "once",
   },
@@ -84,15 +80,6 @@ const notifyOptions: { value: NotifyType; label: string }[] = [
   { value: "both", label: "Both of us" },
 ];
 
-const emotionalLabels: Record<ReminderType, string> = {
-  memory: "A day that matters to you both",
-  nudge: "A gentle reminder to show care",
-  ritual: "A repeating moment of connection",
-  "date-night": "Time set aside for each other",
-  custom: "A reminder you created",
-  cycle: "A gentle care window",
-};
-
 const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
   const sheetRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["84%"], []);
@@ -103,39 +90,44 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
   const [notify, setNotify] = useState<NotifyType>("both");
   const [isPrivate, setIsPrivate] = useState(false);
 
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+
   useEffect(() => {
     if (isOpen) sheetRef.current?.present();
     else sheetRef.current?.dismiss();
   }, [isOpen]);
 
-  const handleCreate = () => {
+  useEffect(() => {
+    const def = typeOptions.find((t) => t.value === type)?.defaultRecurrence;
+    if (def) setRecurrence(def);
+  }, [type]);
+
+  const handleCreate = async () => {
     if (!title.trim()) return;
 
-    // onCreate({
-    //   title: title.trim(),
-    //   type,
-    //   recurrence,
-    //   notify,
-    //   isPrivate,
-    //   nextTrigger:
-    //     recurrence === "daily"
-    //       ? "Tomorrow"
-    //       : recurrence === "weekly"
-    //         ? "Next week"
-    //         : recurrence === "monthly"
-    //           ? "Next month"
-    //           : "Scheduled",
-    //   emotionalLabel: emotionalLabels[type],
-    // });
+    try {
+      //       const doc = await createReminder({
+      //   title: title.trim(),
+      //   type,
+      //   scheduleType: recurrence,
+      //   notify,
+      //   isPrivate,
+      //   triggerAt: selectedDateTime?.toISOString(),
+      // });
 
-    // Reset
-    setTitle("");
-    setType("nudge");
-    setRecurrence("once");
-    setNotify("both");
-    setIsPrivate(false);
+      // onCreate(doc);
+      onClose();
 
-    onClose();
+      // reset
+      setTitle("");
+      setType("nudge");
+      setRecurrence("once");
+      setNotify("both");
+      setIsPrivate(false);
+    } catch (e) {
+      console.log("Create reminder failed", e);
+    }
   };
 
   const renderBackdrop = (props: any) => (
@@ -160,7 +152,7 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
         {/* Header */}
         <View className="flex-row justify-between items-center mb-6">
           <Text className="text-lg font-medium text-foreground/80">
-            New care moment
+            Create a reminder
           </Text>
           <TouchableOpacity onPress={onClose} className="p-1">
             <X size={22} color="#999" />
@@ -172,7 +164,7 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
           placeholder="What would you like to remember?"
           value={title}
           onChangeText={setTitle}
-          className="bg-card rounded-full px-4 py-3.5 mb-6 text-foreground border border-primary/30 h-14"
+          className="bg-card rounded-full px-4 py-3.5 mb-6 text-foreground border border-primary/30 h-12"
           placeholderTextColor="#aaa"
           style={{
             fontSize: 15,
@@ -295,7 +287,7 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
           className={`bg-primary rounded-full py-4 ${!title.trim() ? "opacity-50" : "opacity-100"}`}
         >
           <Text className="text-white text-center font-medium text-base">
-            Set this care moment
+            Save moment/reminder
           </Text>
         </Pressable>
       </ScrollView>
