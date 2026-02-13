@@ -47,7 +47,7 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
   const [note, setNote] = useState("");
   const [type, setType] = useState<MomentsDocument["type"]>("memory");
   const [date, setDate] = useState(dayjs());
-  const [hasReminder, setHasReminder] = useState(true);
+  const [hasReminder, setHasReminder] = useState(false);
   const [notifyPartner, setNotifyPartner] = useState(true);
   const [isPrivate, setIsPrivate] = useState(false);
 
@@ -57,6 +57,9 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
 
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  const [baseTime, setBaseTime] = useState<Date>(new Date());
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
 
   // animated reveal for reminder options
   const reminderAnim = useRef(new Animated.Value(1)).current;
@@ -86,6 +89,12 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
 
     try {
       setSaving(true);
+      const reminderConfig = hasReminder
+        ? {
+            notifyPartner,
+            time: dayjs(baseTime).format("HH:mm"),
+          }
+        : null;
 
       const moment = await createMomentWithMedia({
         fileUri: selectedMediaUri,
@@ -96,13 +105,20 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
         note,
         momentDate: date.toISOString(),
         hasReminder,
-        reminderConfig: hasReminder ? { notifyPartner } : null,
+        reminderConfig: reminderConfig,
         isPrivate,
       });
 
       if (hasReminder) {
+        // combine moment date and baseTime into one datetime string
+        const triggerAt = dayjs(date)
+          .hour(dayjs(baseTime).hour())
+          .minute(dayjs(baseTime).minute())
+          .second(0)
+          .toISOString();
+
         await createReminderForMoment(moment.$id, {
-          triggerAt: date.toISOString(),
+          triggerAt,
           notifyPartner,
         });
       }
@@ -282,6 +298,34 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
               onCancel={() => setDatePickerOpen(false)}
             />
           </View>
+
+          {hasReminder && (
+            <View className="mb-5">
+              <Text className="text-sm text-mutedForeground mb-2 font-normal">
+                Reminder time
+              </Text>
+              <TouchableOpacity
+                onPress={() => setTimePickerOpen(true)}
+                className="flex-row items-center gap-2 bg-card rounded-xl px-4 py-3"
+              >
+                <Text className="text-sm text-foreground/80">
+                  ⏰ {dayjs(baseTime).format("h:mm A")}
+                </Text>
+              </TouchableOpacity>
+
+              <DatePicker
+                modal
+                mode="time"
+                open={timePickerOpen}
+                date={baseTime}
+                onConfirm={(t) => {
+                  setBaseTime(t);
+                  setTimePickerOpen(false);
+                }}
+                onCancel={() => setTimePickerOpen(false)}
+              />
+            </View>
+          )}
 
           {/* Reminder + Notify Partner */}
           <View className="bg-card rounded-xl mb-5 overflow-hidden">

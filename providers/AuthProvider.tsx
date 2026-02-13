@@ -6,7 +6,6 @@ import {
 } from "@/lib/appwrite";
 import { registerForPushToken } from "@/lib/push";
 import { PairDocument, UserDocument } from "@/types/type";
-import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import React, {
   createContext,
@@ -83,7 +82,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<UserDocument | null>(null);
   const [pair, setPair] = useState<PairDocument | null>(null);
   const status = computeStatus(isAuthenticated, user, pair, isLocked);
-  const router = useRouter();
+  const hasBootstrapped = useRef(false);
 
   const ignoreNextAppState = useRef(false);
 
@@ -101,14 +100,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const bootstrap = async () => {
+    if (hasBootstrapped.current) return;
+    hasBootstrapped.current = true;
+
     try {
-      await account.get();
+      const acc = await account.get();
+
       const userDoc = await ensureUserDocument();
+      const pairDoc = await ensurePairDocument();
 
-      setUser(userDoc as UserDocument);
       setIsAuthenticated(true);
+      setUser(userDoc as UserDocument);
+      setPair(pairDoc as PairDocument | null);
 
-      // preload passcode hash locally
       if (userDoc.passcodeHash) {
         await SecureStore.setItemAsync(
           "between_passcode_hash",
@@ -116,14 +120,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         );
         setIsLocked(true);
       }
-
-      const pairDoc = await ensurePairDocument();
-      if (pairDoc) {
-        setPair(pairDoc as PairDocument);
-      }
-    } catch {
-      setUser(null);
+    } catch (e) {
+      // console.log("BOOTSTRAP FAILED — no session");
       setIsAuthenticated(false);
+      setUser(null);
+      setPair(null);
     } finally {
       setBootstrapped(true);
       setLoading(false);
@@ -131,25 +132,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const refreshUser = async (): Promise<UserDocument | null> => {
-    const userDoc = await ensureUserDocument();
-    setUser(userDoc as UserDocument);
-    // keep SecureStore synced
-    if (userDoc.passcodeHash) {
-      await SecureStore.setItemAsync(
-        "between_passcode_hash",
-        userDoc.passcodeHash,
-      );
-    }
-    // Also refresh pair
-    const pairDoc = await ensurePairDocument();
-    setPair(pairDoc as PairDocument | null);
+    try {
+      await account.get(); // verify session alive
+      setIsAuthenticated(true);
 
-    return userDoc as UserDocument;
+      const userDoc = await ensureUserDocument();
+      const pairDoc = await ensurePairDocument();
+
+      setUser(userDoc);
+      setPair(pairDoc);
+
+      if (userDoc.passcodeHash) {
+        await SecureStore.setItemAsync(
+          "between_passcode_hash",
+          userDoc.passcodeHash,
+        );
+      }
+
+      return userDoc;
+    } catch (e) {
+      console.log("refreshUser failed — session lost");
+      setIsAuthenticated(false);
+      setUser(null);
+      setPair(null);
+      return null;
+    }
   };
 
   useEffect(() => {
     bootstrap();
   }, []);
+
+  // useEffect(() => {
+  //   console.log("AUTH STATUS →", status, {
+  //     isAuthenticated,
+  //     passcode: !!user?.passcodeHash,
+  //     nickname: !!user?.nickname,
+  //     pair: !!user?.pairId,
+  //     locked: isLocked,
+  //   });
+  // }, [status]);
 
   // Detect App Background/Resume
   useEffect(() => {
@@ -160,7 +182,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         previousState.match(/inactive|background/) &&
         nextState === "active"
       ) {
-        if (!ignoreNextAppState.current && user?.passcodeHash) {
+        if (
+          !ignoreNextAppState.current &&
+          user?.passcodeHash &&
+          status === "ready"
+        ) {
           setIsLocked(true);
         }
       }

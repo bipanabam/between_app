@@ -1,11 +1,11 @@
 import AnimatedCounter from "@/components/AnimatedCounter";
-import DailyQuestionCard from "@/components/between/DailyQuestionCard";
-import LoveRitualPanel from "@/components/between/LoveRitualPanel";
-import MoodBottomSheet from "@/components/between/MoodBottomSheet";
-import TogetherSinceCard from "@/components/between/TogetherSinceCard";
 import HeartLoader from "@/components/HearLoader";
 import PartnerCard from "@/components/PartnerCard";
 import RotatingMicrocopy from "@/components/RotatingMicrocopy";
+import DailyQuestionCard from "@/components/us/DailyQuestionCard";
+import LoveRitualPanel from "@/components/us/LoveRitualPanel";
+import MoodBottomSheet from "@/components/us/MoodBottomSheet";
+import TogetherSinceCard from "@/components/us/TogetherSinceCard";
 import { privacyMicrocopy } from "@/constant/privacyMicrocopy";
 import { QuestionCategory } from "@/constant/questions";
 import {
@@ -41,7 +41,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 
-const Between = () => {
+const Us = () => {
   const [me, setMe] = useState<any>(null);
   const [pair, setPair] = useState<any>(null);
   const [partner, setPartner] = useState<any>(null);
@@ -405,4 +405,4 @@ const Stat = ({ icon: Icon, label, value }: any) => {
   );
 };
 
-export default Between;
+export default Us;

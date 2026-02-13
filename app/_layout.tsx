@@ -1,16 +1,13 @@
-import "react-native-gesture-handler";
-import Toast from "react-native-toast-message";
+import { toastConfig } from "@/components/AppToast";
 import { AuthProvider, useAuth } from "@/providers/AuthProvider";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import * as Notifications from "expo-notifications";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useEffect } from "react";
+import "react-native-gesture-handler";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Toast from "react-native-toast-message";
 import "./global.css";
-import { toastConfig } from "@/components/AppToast";
-
-
-
 
 Notifications.setNotificationHandler({
   handleNotification:
@@ -66,7 +63,7 @@ function RootLayoutNav() {
 
       case "ready":
         if (!inTabs && !inStory) {
-          router.replace("/(tabs)/between");
+          router.replace("/(tabs)/us");
         }
         break;
     }

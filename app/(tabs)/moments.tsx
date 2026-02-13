@@ -125,7 +125,7 @@ const Moments = () => {
       data: upcomingMoments,
     },
     {
-      title: "Care reminders",
+      title: "Upcoming reminders",
       type: "reminders",
       data: reminders,
     },

@@ -9,16 +9,10 @@ import { hashPasscode } from "@/types/helpers";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import {
-  ArrowRight,
-  Check,
-  Heart,
-  Lock,
-  Mail,
-  User,
-} from "lucide-react-native";
+import { ArrowRight, Heart, Lock, Mail, User } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   BackHandler,
   KeyboardAvoidingView,
@@ -33,13 +27,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 const FOOTER_STEPS = ["email", "passcode", "nickname"];
 
-type Step =
-  | "email"
-  | "emailSent"
-  | "passcode"
-  | "confirmPasscode"
-  | "nickname"
-  | "complete";
+type Step = "email" | "emailSent" | "passcode" | "confirmPasscode" | "nickname";
+// | "complete";
 
 const SignUp = () => {
   const { loading, isAuthenticated, user, refreshUser } = useAuth();
@@ -226,24 +215,34 @@ const SignUp = () => {
         passcodeHash: hash,
         nickname: nickname.trim(),
       });
-      setStep("complete");
-      triggerSuccess();
+
       await SecureStore.deleteItemAsync("signup_step");
       await refreshUser();
+
+      triggerSuccess();
+
+      // setCompletingOnboarding(false);
+      router.replace("/(pairing)");
     } catch (e) {
       // console.log(e);
       triggerError();
       Alert.alert("Something went wrong. Please try again.");
-    } finally {
       setCompletingOnboarding(false);
     }
   };
 
   if (completingOnboarding) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <HeartLoader />
-      </View>
+      <SafeAreaView className="flex-1 bg-background">
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <HeartLoader />
+          <Text className="text-mutedForeground mt-4">
+            Setting up your space...
+          </Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -337,27 +336,17 @@ const SignUp = () => {
                   maxLength={6}
                 />
 
-                {/* <Pressable
-                  onPress={handleVerifyOtp}
-                  disabled={otp.length !== 6 || verifying}
-                  className="h-16 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
-                >
-                  {verifying ? (
-                    <>
-                      <ActivityIndicator color="white" />
-                      <Text className="text-white text-lg font-medium ml-3">
-                        Verifying...
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text className="text-white text-lg font-medium">
-                        Verify
-                      </Text>
-                      <ArrowRight size={15} color="white" />
-                    </>
-                  )}
-                </Pressable> */}
+                {verifying && (
+                  <Pressable
+                    disabled={verifying}
+                    className="h-16 w-full bg-primary/90 rounded-2xl items-center justify-center mt-4 flex-row disabled:opacity-50"
+                  >
+                    <ActivityIndicator color="white" />
+                    <Text className="text-white text-lg font-medium ml-3">
+                      Verifying...
+                    </Text>
+                  </Pressable>
+                )}
 
                 {/* Resend */}
                 <Pressable onPress={handleSendOtp} className="mt-6">
@@ -480,7 +469,7 @@ const SignUp = () => {
           )}
 
           {/* COMPLETE */}
-          {step === "complete" && (
+          {/* {step === "complete" && (
             <StepWrapper stepKey={step}>
               <View className="items-center mt-14">
                 <View className="h-12 w-12 rounded-full bg-muted items-center justify-center mb-6">
@@ -493,7 +482,7 @@ const SignUp = () => {
                 </Text>
               </View>
             </StepWrapper>
-          )}
+          )} */}
         </View>
 
         {/* Footer Pagination Dots */}

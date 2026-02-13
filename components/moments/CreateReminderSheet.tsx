@@ -83,7 +83,7 @@ const notifyOptions: { value: NotifyType; label: string }[] = [
 
 const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
   const sheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["84%"], []);
+  const snapPoints = useMemo(() => ["88%"], []);
 
   const [title, setTitle] = useState("");
   const [type, setType] = useState<ReminderType>("nudge");

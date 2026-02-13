@@ -9,14 +9,14 @@ const TabIcon = ({ focused, name, title }: any) => {
   return (
     <View className="flex-1 px-1">
       {focused ? (
-        <View className="flex-row h-14 w-full min-w-[110px] items-center justify-center rounded-full bg-muted/70">
-          <Feather name={name} size={22} color="#bc8f97" />
+        <View className="flex-row h-14 w-full min-w-[105px] items-center justify-center rounded-full bg-muted/70">
+          <Feather name={name} size={19} color="#bc8f97" />
           <Text className="text-primary text-base ml-1">{title}</Text>
         </View>
       ) : (
-        <View className="flex-row min-w-[45px] h-14 items-center justify-center rounded-full">
-          <Feather name={name} size={20} color="#8a8075" />
-          <Text className="text-mutedForeground text-base ml-1">{title}</Text>
+        <View className="flex-row min-w-[40px] h-14 items-center justify-center rounded-full">
+          <Feather name={name} size={18} color="#8a8075" />
+          <Text className="text-mutedForeground text-sm ml-1">{title}</Text>
         </View>
       )}
     </View>
@@ -54,12 +54,12 @@ const _Layout = () => {
       }}
     >
       <Tabs.Screen
-        name="between"
+        name="us"
         options={{
-          title: "Between",
+          title: "Us",
           headerShown: false,
           tabBarIcon: ({ focused }) => (
-            <TabIcon focused={focused} name="users" title="Between" />
+            <TabIcon focused={focused} name="users" title="Us" />
           ),
         }}
       />

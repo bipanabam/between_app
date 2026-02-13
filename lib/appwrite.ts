@@ -46,6 +46,8 @@ export const appwriteConfig = {
   momentsCollectionId: "moments",
   THINKING_OF_YOU_FUNCTION_ID: "6985b3fa0028092fcb45",
   MESSAGE_NOTIFICATION_FUNCTION_ID: "69886ec900334c02a80c",
+  REMINDER_DISPATCHER_FUNCTION_ID: "",
+  PUSH_DISPATCH_FUNCTION_ID: "6985b3fa0028092fcb45",
   storageBucketId: "6989c1f4001e85df4b05",
 };
 
@@ -482,10 +484,11 @@ export const sendMessagePush = async (payload: {
   pairId: string;
   senderId: string;
   text: string;
+  mediaType: string;
   type: string;
 }) => {
   const res = await functions.createExecution(
-    appwriteConfig.MESSAGE_NOTIFICATION_FUNCTION_ID,
+    appwriteConfig.PUSH_DISPATCH_FUNCTION_ID,
     JSON.stringify(payload),
   );
 
@@ -545,9 +548,10 @@ export const sendMessage = async ({
   // trigger push (fire-and-forget)
   sendMessagePush({
     pairId: pair.$id,
-    senderId,
+    senderId: senderId,
     text,
-    type,
+    mediaType: type,
+    type: "message",
   }).catch(() => {});
 
   return msg;
@@ -957,10 +961,19 @@ export const submitQuestionAnswer = async (
 export const sendThinkingOfYouNotification = async (
   payload: ThinkingOfYouPayload,
 ) => {
+  const data = {
+    type: "thinking",
+    pairId: payload.pairId,
+    fromUserId: payload.fromUserId,
+    toUserId: payload.toUserId,
+    fromName: payload.fromName,
+  };
   const res = await functions.createExecution(
-    appwriteConfig.THINKING_OF_YOU_FUNCTION_ID,
-    JSON.stringify(payload),
+    appwriteConfig.PUSH_DISPATCH_FUNCTION_ID,
+
+    JSON.stringify(data),
   );
+
   if (res.status !== "completed") {
     throw new Error("Function failed");
   }
@@ -1212,17 +1225,12 @@ export const deleteCycleReminders = async (periodCycleId: string) => {
 export const getCurrentMonthReminders = async (): Promise<
   ReminderDocument[]
 > => {
-  const me = await account.get();
-  const userId = me.$id;
-
-  // Get user's pair
   const userDoc = await ensureUserDocument();
   if (!userDoc.pairId) return [];
 
   const pairId = userDoc.pairId;
 
-  // Start and end of current month
-  const startOfMonth = dayjs().startOf("month").startOf("day").toISOString();
+  const now = dayjs().toISOString();
   const endOfMonth = dayjs().endOf("month").endOf("day").toISOString();
 
   const res = await databases.listDocuments<ReminderDocument>(
@@ -1232,38 +1240,38 @@ export const getCurrentMonthReminders = async (): Promise<
       Query.equal("pairId", pairId),
       Query.equal("isActive", true),
       Query.notEqual("type", "cycle"),
-      Query.greaterThanEqual("nextTriggerAt", startOfMonth),
+
+      //upcoming only
+      Query.greaterThanEqual("nextTriggerAt", now),
       Query.lessThanEqual("nextTriggerAt", endOfMonth),
+
       Query.limit(100),
     ],
   );
+
   return res.documents;
 };
 
 export const getMomentsWithReminders = async (): Promise<MomentsDocument[]> => {
-  // Get current user
-  const me = await account.get();
-  const userId = me.$id;
-
-  // Get user's pair
   const userDoc = await ensureUserDocument();
   if (!userDoc.pairId) return [];
 
   const pairId = userDoc.pairId;
 
-  // Start and end of current month
-  const startOfMonth = dayjs().startOf("month").startOf("day").toISOString();
+  const now = dayjs().toISOString();
   const endOfMonth = dayjs().endOf("month").endOf("day").toISOString();
 
-  // Query moments where hasReminder is true and momentDate is within this month
   const res = await databases.listDocuments<MomentsDocument>(
     appwriteConfig.databaseId,
     appwriteConfig.momentsCollectionId,
     [
       Query.equal("pairId", pairId),
       Query.equal("hasReminder", true),
-      Query.greaterThanEqual("momentDate", startOfMonth),
+
+      // upcoming only
+      Query.greaterThanEqual("momentDate", now),
       Query.lessThanEqual("momentDate", endOfMonth),
+
       Query.limit(100),
     ],
   );

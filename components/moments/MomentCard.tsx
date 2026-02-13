@@ -1,3 +1,4 @@
+import { MomentsDocument } from "@/types/type";
 import { LinearGradient } from "expo-linear-gradient";
 import { Camera, Flag, Heart, Lock, Star } from "lucide-react-native";
 import { MotiView } from "moti";
@@ -15,12 +16,18 @@ interface Moment {
 }
 
 interface Props {
-  moment: Moment;
+  moment: MomentsDocument;
   index: number;
   onPress?: (moment: Moment) => void;
   onLongPress?: (momentId: string) => void;
 }
-export type MomentType = "memory" | "date-night" | "anniversary" | "milestone";
+export type MomentType =
+  | "memory"
+  | "date-night"
+  | "anniversary"
+  | "milestone"
+  | "trip"
+  | "relationship-start";
 
 const typeConfig: Record<
   MomentType,
@@ -55,6 +62,18 @@ const typeConfig: Record<
     iconColor: "#7C3AED",
     gradient: ["#E8DAFF", "#C9B3FF"],
   },
+  trip: {
+    icon: Flag,
+    pastel: "#E8DAFF",
+    iconColor: "#7C3AED",
+    gradient: ["#E8DAFF", "#C9B3FF"],
+  },
+  "relationship-start": {
+    icon: Flag,
+    pastel: "#E8DAFF",
+    iconColor: "#7C3AED",
+    gradient: ["#E8DAFF", "#C9B3FF"],
+  },
 };
 
 const MomentCard = ({ moment, index, onPress, onLongPress }: Props) => {
@@ -73,7 +92,7 @@ const MomentCard = ({ moment, index, onPress, onLongPress }: Props) => {
     >
       <Pressable
         onPress={() => onPress?.(moment)}
-        onLongPress={() => onLongPress?.(moment.id)}
+        onLongPress={() => onLongPress?.(moment.$id)}
         delayLongPress={300}
         style={({ pressed }) => ({
           transform: [{ scale: pressed ? 0.97 : 1 }],
@@ -109,7 +128,7 @@ const MomentCard = ({ moment, index, onPress, onLongPress }: Props) => {
               </View>
 
               {/* Private Lock */}
-              {moment.private && (
+              {moment.isPrivate && (
                 <Lock size={14} color="#9CA3AF" strokeWidth={1.5} />
               )}
             </View>
@@ -119,7 +138,7 @@ const MomentCard = ({ moment, index, onPress, onLongPress }: Props) => {
               {/* Date */}
               <View className="px-2.5 py-1 rounded-full bg-accent/70">
                 <Text className="text-sm text-primary/90 font-light">
-                  {new Date(moment.date).toDateString()}
+                  {new Date(moment.momentDate).toDateString()}
                 </Text>
               </View>
 
