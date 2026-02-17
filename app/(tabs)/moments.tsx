@@ -19,15 +19,22 @@ import {
   deleteCycleReminders,
   deleteMoment,
   deleteReminder,
-  getCurrentMonthReminders,
+  getAllMoments,
+  getAllReminders,
   getMomentsWithUpcomingReminders,
+  getPeriodCycle,
   getUpcomingReminders,
   upsertPeriodCycle,
 } from "@/lib/appwrite";
 
 import { showError, showSuccess } from "@/lib/toast";
 
-import { CycleConfig, MomentsDocument, ReminderDocument } from "@/types/type";
+import {
+  CycleConfig,
+  MomentsDocument,
+  PeriodCycleDocument,
+  ReminderDocument,
+} from "@/types/type";
 import dayjs from "dayjs";
 
 import React, { useEffect, useState } from "react";
@@ -38,7 +45,9 @@ const Moments = () => {
   const [tab, setTab] = useState<"moments" | "calendar">("moments");
   const [reminders, setReminders] = useState<ReminderDocument[]>([]);
   const [moments, setMoments] = useState<MomentsDocument[]>([]);
-  const [allReminders, setAllRemimders] = useState<ReminderDocument[]>([]);
+  const [allReminders, setAllReminders] = useState<ReminderDocument[]>([]);
+  const [allMoments, setAllMoments] = useState<MomentsDocument[]>([]);
+  const [cycle, setCycle] = useState<PeriodCycleDocument | null>(null);
 
   const [selectedCalendarDate, setSelectedCalendarDate] =
     useState<dayjs.Dayjs | null>(null);
@@ -66,7 +75,9 @@ const Moments = () => {
 
   const handleDeleteMoment = async (momentId: string) => {
     await deleteMoment(momentId);
+
     setMoments((prev) => prev.filter((m) => m.$id !== momentId));
+    setAllMoments((prev) => prev.filter((m) => m.$id !== momentId));
 
     showSuccess("Moment deleted");
   };
@@ -78,7 +89,9 @@ const Moments = () => {
 
   const handleDeleteReminder = async (reminderId: string) => {
     await deleteReminder(reminderId);
-    setReminders((prev) => prev.filter((m) => m.$id !== reminderId));
+
+    setReminders((prev) => prev.filter((r) => r.$id !== reminderId));
+    setAllReminders((prev) => prev.filter((r) => r.$id !== reminderId));
 
     showSuccess("Reminder deleted 🗑️");
   };
@@ -92,15 +105,25 @@ const Moments = () => {
 
   useEffect(() => {
     const load = async () => {
-      const [upcomingRem, upcomingMoments, allReminders] = await Promise.all([
+      const [
+        upcomingRem,
+        upcomingMoments,
+        allReminders,
+        allMoments,
+        periodCycle,
+      ] = await Promise.all([
         getUpcomingReminders(),
         getMomentsWithUpcomingReminders(),
-        getCurrentMonthReminders(),
+        getAllReminders(),
+        getAllMoments(),
+        getPeriodCycle(),
       ]);
 
       setReminders(upcomingRem);
       setMoments(upcomingMoments);
-      setAllRemimders(allReminders);
+      setAllReminders(allReminders);
+      setAllMoments(allMoments);
+      setCycle(periodCycle);
     };
 
     load();
@@ -180,85 +203,72 @@ const Moments = () => {
 
         {tab === "moments" ? (
           <>
+            <CycleCard
+              cycle={cycle ?? undefined}
+              onPress={() => setIsCycleSheetOpen(true)}
+            />
+
             {moments.length === 0 && reminders.length === 0 ? (
               <EmptyState onCreateFirst={() => setIsSheetOpen(true)} />
             ) : (
-              <>
-                <SectionList
-                  sections={sections}
-                  keyExtractor={(item: any) => item.$id}
-                  contentContainerStyle={{
-                    paddingTop: 10,
-                    paddingBottom: 120,
-                  }}
-                  stickySectionHeadersEnabled={false}
-                  ItemSeparatorComponent={() => <View className="h-3" />}
-                  ListHeaderComponent={
-                    <CycleCard
-                      enabled={cycleEnabled}
-                      nextWindowLabel="Next care window in 3 days"
-                      onPress={() => setIsCycleSheetOpen(true)}
-                    />
-                  }
-                  renderSectionHeader={({ section }) => (
-                    <View className="px-5 mt-4 mb-2">
-                      <Text className="text-xs text-mutedForeground/60 tracking-wide">
-                        {section.title}
-                      </Text>
-                    </View>
-                  )}
-                  renderItem={({ item, index, section }) => {
-                    if (section.type === "moments") {
-                      return (
-                        <View className="px-5">
-                          <MomentCard
-                            moment={item}
-                            index={index}
-                            onEdit={handleEditMoment}
-                            onDelete={handleDeleteMoment}
-                          />
-                        </View>
-                      );
-                    }
-
+              <SectionList
+                sections={sections}
+                keyExtractor={(item: any) => item.$id}
+                contentContainerStyle={{ paddingTop: 10, paddingBottom: 120 }}
+                stickySectionHeadersEnabled={false}
+                ItemSeparatorComponent={() => <View className="h-3" />}
+                renderSectionHeader={({ section }) => (
+                  <View className="px-5 mt-4 mb-2">
+                    <Text className="text-xs text-mutedForeground/60 tracking-wide">
+                      {section.title}
+                    </Text>
+                  </View>
+                )}
+                renderItem={({ item, index, section }) => {
+                  if (section.type === "moments") {
                     return (
                       <View className="px-5">
-                        <ReminderCard
-                          reminder={item}
+                        <MomentCard
+                          moment={item}
                           index={index}
-                          onEdit={handleEditReminder}
-                          onDelete={handleDeleteReminder}
+                          onEdit={handleEditMoment}
+                          onDelete={handleDeleteMoment}
                         />
                       </View>
                     );
-                  }}
-                />
-              </>
+                  }
+
+                  return (
+                    <View className="px-5">
+                      <ReminderCard
+                        reminder={item}
+                        index={index}
+                        onEdit={handleEditReminder}
+                        onDelete={handleDeleteReminder}
+                      />
+                    </View>
+                  );
+                }}
+              />
             )}
           </>
         ) : (
           <FlatList
             data={[{ id: "calendar" }]}
             keyExtractor={(i) => i.id}
-            contentContainerStyle={{
-              paddingTop: 10,
-              paddingBottom: 40,
-            }}
+            contentContainerStyle={{ paddingTop: 10, paddingBottom: 40 }}
             ListHeaderComponent={
               <CycleCard
-                enabled={cycleEnabled}
-                nextWindowLabel="Next care window in 3 days"
+                cycle={cycle ?? undefined}
                 onPress={() => setIsCycleSheetOpen(true)}
               />
             }
             renderItem={() => (
-              <MomentsCalendar
-                reminders={allReminders}
-                onDayPress={setSelectedCalendarDate}
-              />
+              <MomentsCalendar onDayPress={setSelectedCalendarDate} />
             )}
           />
         )}
+
         {/* Floating Action Menu */}
         <FloatingActionMenu
           items={actionItems}
@@ -317,8 +327,25 @@ const Moments = () => {
 
       <CalendarReminderSheet
         selectedDate={selectedCalendarDate}
-        reminders={reminders}
+        reminders={allReminders}
+        moments={allMoments}
         onClose={() => setSelectedCalendarDate(null)}
+        onEditMoment={(m) => {
+          setSelectedCalendarDate(null);
+          handleEditMoment(m);
+        }}
+        onDeleteMoment={(id) => {
+          setSelectedCalendarDate(null);
+          handleDeleteMoment(id);
+        }}
+        onEditReminder={(r) => {
+          setSelectedCalendarDate(null);
+          handleEditReminder(r);
+        }}
+        onDeleteReminder={(id) => {
+          setSelectedCalendarDate(null);
+          handleDeleteReminder(id);
+        }}
       />
     </SafeAreaView>
   );

@@ -1331,7 +1331,7 @@ export const getMomentsWithUpcomingReminders = async (): Promise<
  * Fetch all active reminders for the current user's pair
  * Optionally filter by a date range (for calendar)
  */
-export const getReminders = async (options?: {
+export const getAllReminders = async (options?: {
   from?: Date | string;
   to?: Date | string;
 }): Promise<ReminderDocument[]> => {
@@ -1347,6 +1347,7 @@ export const getReminders = async (options?: {
   const queries: any[] = [
     Query.equal("pairId", pairId),
     Query.equal("isActive", true),
+    Query.notEqual("type", "cycle"),
     Query.limit(100),
   ];
 
@@ -1368,6 +1369,51 @@ export const getReminders = async (options?: {
   const res = await databases.listDocuments<ReminderDocument>(
     appwriteConfig.databaseId,
     appwriteConfig.remindersCollectionId,
+    queries,
+  );
+
+  return res.documents;
+};
+
+export const getAllMoments = async (options?: {
+  from?: Date | string;
+  to?: Date | string;
+}): Promise<MomentsDocument[]> => {
+  const me = await account.get();
+  const userId = me.$id;
+
+  // Get user's pair
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) return [];
+
+  const pairId = userDoc.pairId;
+
+  const queries: any[] = [
+    Query.equal("pairId", pairId),
+    // Query.equal("createdBy", userDoc.$id),
+    // Query.equal("hasReminder", false),
+    Query.orderAsc("momentDate"),
+    Query.limit(100),
+  ];
+
+  // If a date range is provided, filter by nextTriggerAt
+  if (options?.from) {
+    queries.push(
+      Query.greaterThanEqual(
+        "momentDate",
+        new Date(options.from).toISOString(),
+      ),
+    );
+  }
+  if (options?.to) {
+    queries.push(
+      Query.lessThanEqual("momentDate", new Date(options.to).toISOString()),
+    );
+  }
+
+  const res = await databases.listDocuments<MomentsDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.momentsCollectionId,
     queries,
   );
 

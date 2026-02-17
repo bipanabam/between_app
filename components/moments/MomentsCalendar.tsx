@@ -1,4 +1,5 @@
-import { ReminderDocument } from "@/types/type";
+import { getAllMoments, getAllReminders } from "@/lib/appwrite";
+import { MomentsDocument, ReminderDocument } from "@/types/type";
 
 import dayjs from "dayjs";
 import {
@@ -10,7 +11,7 @@ import {
   Leaf,
   Moon,
 } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
 const reminderIcons: Record<string, any> = {
@@ -31,27 +32,76 @@ const reminderColors: Record<string, string> = {
 };
 
 interface Props {
-  reminders: ReminderDocument[];
   onDayPress: (day: dayjs.Dayjs) => void;
 }
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 
-const MomentsCalendar = ({ reminders, onDayPress }: Props) => {
+const MomentsCalendar = ({ onDayPress }: Props) => {
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(null);
+
+  const [monthReminders, setMonthReminders] = useState<ReminderDocument[]>([]);
+  const [monthMoments, setMonthMoments] = useState<MomentsDocument[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchMonthData = async (month: dayjs.Dayjs) => {
+    try {
+      setLoading(true);
+
+      const start = month.startOf("month").startOf("week").toDate();
+      const end = month.endOf("month").endOf("week").toDate();
+
+      const [rem, mom] = await Promise.all([
+        getAllReminders({ from: start, to: end }),
+        getAllMoments({ from: start, to: end }),
+      ]);
+
+      setMonthReminders(rem);
+      setMonthMoments(mom);
+    } catch (e) {
+      console.error("Month fetch failed", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const lastFetchedMonth = useRef<string | null>(null);
+
+  useEffect(() => {
+    const key = currentMonth.format("YYYY-MM");
+
+    if (lastFetchedMonth.current === key) return;
+
+    lastFetchedMonth.current = key;
+    fetchMonthData(currentMonth);
+  }, [currentMonth]);
 
   // Group reminders by day
   const remindersByDay = useMemo(() => {
     const map: Record<string, ReminderDocument[]> = {};
-    reminders.forEach((r) => {
+    monthReminders.forEach((r) => {
       if (!r.nextTriggerAt) return;
       const key = dayjs(r.nextTriggerAt).format("YYYY-MM-DD");
       if (!map[key]) map[key] = [];
       map[key].push(r);
     });
     return map;
-  }, [reminders]);
+  }, [monthReminders]);
+
+  const momentsByDay = useMemo(() => {
+    const map: Record<string, MomentsDocument[]> = {};
+
+    monthMoments.forEach((m) => {
+      if (!m.momentDate) return;
+
+      const key = dayjs(m.momentDate).format("YYYY-MM-DD");
+      if (!map[key]) map[key] = [];
+      map[key].push(m);
+    });
+
+    return map;
+  }, [monthMoments]);
 
   // Build calendar grid for current month
   const daysInMonth = useMemo(() => {
@@ -65,6 +115,14 @@ const MomentsCalendar = ({ reminders, onDayPress }: Props) => {
     }
     return days;
   }, [currentMonth]);
+
+  // if (loading) {
+  //   return (
+  //     <View className="flex-1 items-center justify-center">
+  //       <ActivityIndicator color="#bc8f97" />
+  //     </View>
+  //   );
+  // }
 
   return (
     <View className="flex-1 px-2 pt-4">
@@ -112,12 +170,16 @@ const MomentsCalendar = ({ reminders, onDayPress }: Props) => {
           const isToday = day.isSame(dayjs(), "day");
           const isSelected = selectedDate?.isSame(day, "day");
           const dayReminders = remindersByDay[dayKey] || [];
+          const dayMoments = momentsByDay[dayKey] || [];
 
           return (
             <TouchableOpacity
               key={dayKey}
               onPress={() => {
-                if (dayReminders.length) onDayPress(day);
+                if (dayReminders.length || dayMoments.length) {
+                  setSelectedDate(day);
+                  onDayPress(day);
+                }
               }}
               activeOpacity={0.7}
               style={{ flexBasis: "14.28%", maxWidth: "14.28%" }}
@@ -129,8 +191,8 @@ const MomentsCalendar = ({ reminders, onDayPress }: Props) => {
               <View
                 className={`
                 w-10 h-10 items-center justify-center rounded-xl
-                ${isSelected ? "bg-primary/20 border border-primary/30" : ""}
-                ${isToday && !isSelected ? "bg-accent/50" : ""}
+                ${isSelected ? "bg-primary/20 border border-primary/40" : ""}
+                ${isToday && !isSelected ? "border border-primary/30" : ""}
               `}
               >
                 <Text
@@ -145,7 +207,7 @@ const MomentsCalendar = ({ reminders, onDayPress }: Props) => {
               </View>
 
               {/* Multi reminder dots */}
-              {dayReminders.length > 0 &&
+              {/* {dayReminders.length > 0 &&
                 (() => {
                   const firstType = dayReminders[0].type;
                   const Icon = reminderIcons[firstType];
@@ -158,10 +220,10 @@ const MomentsCalendar = ({ reminders, onDayPress }: Props) => {
                           color={reminderColors[firstType]}
                           strokeWidth={2}
                         />
-                      )}
+                      )} */}
 
-                      {/* extra indicator */}
-                      {dayReminders.length > 1 && (
+              {/* extra indicator */}
+              {/* {dayReminders.length > 1 && (
                         <View
                           className="absolute bottom-0.5 right-1.5 w-1 h-1 rounded-full"
                           style={{ backgroundColor: "#999" }}
@@ -169,7 +231,24 @@ const MomentsCalendar = ({ reminders, onDayPress }: Props) => {
                       )}
                     </>
                   );
-                })()}
+                })()} */}
+              <View className="absolute bottom-1 flex-row items-center space-x-1">
+                {/* Reminder dot */}
+                {dayReminders.length > 0 && (
+                  <View
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{
+                      backgroundColor:
+                        reminderColors[dayReminders[0].type] || "#ccc",
+                    }}
+                  />
+                )}
+
+                {/* Moment icon */}
+                {dayMoments.length > 0 && (
+                  <Camera size={12} color="#f9a8d4" strokeWidth={2} />
+                )}
+              </View>
             </TouchableOpacity>
           );
         })}

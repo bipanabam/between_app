@@ -1,15 +1,23 @@
-import { Heart } from "lucide-react-native";
+import dayjs from "dayjs";
+import { HandHeart } from "lucide-react-native";
 import { MotiView } from "moti";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 
 type Props = {
-  enabled: boolean;
-  nextWindowLabel?: string;
+  cycle?: {
+    avgCycleLength: number;
+    lastStartDate: string;
+    isEnabled: boolean;
+  };
   onPress: () => void;
 };
 
-const CycleCard = ({ enabled, nextWindowLabel, onPress }: Props) => {
+const CycleCard = ({ cycle, onPress }: Props) => {
+  const nextStart = cycle
+    ? dayjs(cycle.lastStartDate).add(cycle.avgCycleLength, "day")
+    : null;
+
   return (
     <MotiView
       from={{ opacity: 0, translateY: 8 }}
@@ -18,30 +26,32 @@ const CycleCard = ({ enabled, nextWindowLabel, onPress }: Props) => {
     >
       <View className="flex-row items-center mb-3">
         <View className="w-12 h-12 rounded-full bg-rose-100 items-center justify-center mr-3">
-          <Heart size={20} color="#c97b84" />
+          <HandHeart size={20} color="#c97b84" />
         </View>
 
         <View className="flex-1">
           <Text className="text-base font-semibold text-foreground">
-            Gentle period cycle care
+            Period care
           </Text>
 
           <Text className="text-sm text-mutedForeground mt-1">
-            {enabled
-              ? (nextWindowLabel ?? "Care window coming soon")
-              : "Support your partner with softer moments"}
+            {cycle && cycle.isEnabled
+              ? `Next care days start on ${nextStart?.format("MMM D")}`
+              : "Track and support your partner’s cycle with gentle care"}
           </Text>
         </View>
       </View>
 
-      <TouchableOpacity
-        onPress={onPress}
-        className="bg-white/80 rounded-xl px-4 py-3"
-      >
-        <Text className="text-sm text-center font-medium text-foreground">
-          {enabled ? "Adjust care" : "Enable care support"}
-        </Text>
-      </TouchableOpacity>
+      {!cycle?.isEnabled && (
+        <TouchableOpacity
+          onPress={onPress}
+          className="bg-white/80 rounded-xl px-4 py-3"
+        >
+          <Text className="text-sm text-center font-medium text-foreground">
+            Enable cycle care
+          </Text>
+        </TouchableOpacity>
+      )}
     </MotiView>
   );
 };
