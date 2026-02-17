@@ -1,9 +1,17 @@
 import { MomentsDocument } from "@/types/type";
 import { LinearGradient } from "expo-linear-gradient";
-import { Camera, Flag, Heart, Lock, Star } from "lucide-react-native";
+import {
+  Camera,
+  Edit,
+  Flag,
+  Heart,
+  Lock,
+  Star,
+  Trash,
+} from "lucide-react-native";
 import { MotiView } from "moti";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, TouchableOpacity, View } from "react-native";
 
 interface Moment {
   id: string;
@@ -14,13 +22,15 @@ interface Moment {
   hasReminder?: boolean;
   private?: boolean;
 }
-
 interface Props {
   moment: MomentsDocument;
   index: number;
-  onPress?: (moment: Moment) => void;
+  onPress?: (moment: MomentsDocument) => void;
   onLongPress?: (momentId: string) => void;
+  onEdit?: (moment: MomentsDocument) => void;
+  onDelete?: (momentId: string) => void;
 }
+
 export type MomentType =
   | "memory"
   | "date-night"
@@ -76,7 +86,14 @@ const typeConfig: Record<
   },
 };
 
-const MomentCard = ({ moment, index, onPress, onLongPress }: Props) => {
+const MomentCard = ({
+  moment,
+  index,
+  onPress,
+  onLongPress,
+  onEdit,
+  onDelete,
+}: Props) => {
   const config = typeConfig[moment.type];
   const Icon = config.icon;
 
@@ -158,6 +175,29 @@ const MomentCard = ({ moment, index, onPress, onLongPress }: Props) => {
                 </View>
               )}
             </View>
+          </View>
+          <View className="absolute top-3 right-3 flex-row gap-4">
+            <TouchableOpacity onPress={() => onEdit?.(moment)}>
+              <Edit size={15} color="#999" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() =>
+                Alert.alert(
+                  "Delete moment",
+                  "Are you sure you want to delete this moment?",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: () => onDelete?.(moment.$id),
+                    },
+                  ],
+                )
+              }
+            >
+              <Trash size={15} color="#EF4444" />
+            </TouchableOpacity>
           </View>
         </View>
       </Pressable>

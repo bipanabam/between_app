@@ -1,42 +1,43 @@
-import { createReminder } from "@/lib/appwrite";
+import { updateReminder } from "@/lib/appwrite";
 import {
-  emotionalLabels,
-  notifyOptions,
-  NotifyType,
-  recurrenceOptions,
-  RecurrenceType,
-  ReminderType,
-  typeOptions,
+    emotionalLabels,
+    notifyOptions,
+    NotifyType,
+    recurrenceOptions,
+    RecurrenceType,
+    ReminderType,
+    typeOptions,
 } from "@/lib/reminderConfig";
 import { showError, showSuccess } from "@/lib/toast";
 import { ReminderDocument } from "@/types/type";
 import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetScrollView,
+    BottomSheetBackdrop,
+    BottomSheetModal,
+    BottomSheetScrollView,
 } from "@gorhom/bottom-sheet";
 import dayjs from "dayjs";
 import { Lock, Unlock, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Pressable,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import DatePicker from "react-native-date-picker";
 
 interface Props {
   isOpen: boolean;
+  reminder: ReminderDocument | null;
   onClose: () => void;
-  onCreate: (reminder: ReminderDocument) => void;
+  onUpdated: (reminder: ReminderDocument) => void;
 }
 
-const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
+const EditReminderSheet = ({ isOpen, reminder, onClose, onUpdated }: Props) => {
   const sheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["95%"], []);
+  const snapPoints = useMemo(() => ["88%"], []);
 
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
@@ -48,8 +49,8 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
 
-  const [baseDate, setBaseDate] = useState<Date>(new Date());
-  const [baseTime, setBaseTime] = useState<Date>(new Date());
+  const [baseDate, setBaseDate] = useState(new Date());
+  const [baseTime, setBaseTime] = useState(new Date());
 
   const [weekday, setWeekday] = useState<number>(dayjs().day());
   const [monthDay, setMonthDay] = useState<number>(dayjs().date());
@@ -61,10 +62,35 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
     else sheetRef.current?.dismiss();
   }, [isOpen]);
 
+  // Hydrate from existing reminder
   useEffect(() => {
-    const def = typeOptions.find((t) => t.value === type)?.defaultRecurrence;
-    if (def) setRecurrence(def);
-  }, [type]);
+    if (!reminder) return;
+
+    setTitle(reminder.title);
+    setNote(reminder?.note ?? "");
+    setType(reminder.type);
+    setRecurrence(reminder.scheduleType);
+    setIsPrivate(reminder.private);
+
+    const notifyType: NotifyType =
+      reminder.notifySelf && reminder.notifyPartner
+        ? "both"
+        : reminder.notifyPartner
+          ? "partner"
+          : "me";
+
+    setNotify(notifyType);
+
+    const next = dayjs(reminder.nextTriggerAt);
+    setBaseDate(next.toDate());
+    setBaseTime(next.toDate());
+
+    if (reminder.recurrenceRule) {
+      const parsed = JSON.parse(reminder.recurrenceRule);
+      if (parsed.weekday !== undefined) setWeekday(parsed.weekday);
+      if (parsed.dayOfMonth !== undefined) setMonthDay(parsed.dayOfMonth);
+    }
+  }, [reminder]);
 
   const computeNextTrigger = () => {
     const now = dayjs();
@@ -85,20 +111,21 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
 
     if (recurrence === "weekly") {
       let next = now.day(weekday).hour(time.hour()).minute(time.minute());
-
       if (next.isBefore(now)) next = next.add(1, "week");
       return next.toISOString();
     }
 
     if (recurrence === "monthly") {
       let next = now.date(monthDay).hour(time.hour()).minute(time.minute());
-
       if (next.isBefore(now)) next = next.add(1, "month");
       return next.toISOString();
     }
   };
 
-  const handleCreate = async () => {
+  const previewTrigger = computeNextTrigger();
+
+  const handleUpdate = async () => {
+    if (!reminder) return;
     if (!title.trim()) return;
 
     const nextTriggerAt = computeNextTrigger();
@@ -106,7 +133,8 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
 
     try {
       setSaving(true);
-      const doc = await createReminder({
+
+      const updated = await updateReminder(reminder.$id, {
         title: title.trim(),
         note,
 
@@ -121,27 +149,17 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
 
         notify,
         isPrivate,
-
-        periodCycleId: null,
       });
 
-      onCreate(doc);
-
-      // reset
-      setTitle("");
-      setNote("");
-      setType("nudge");
-      setRecurrence("once");
-      setNotify("both");
-      setIsPrivate(false);
+      onUpdated(updated);
 
       showSuccess(
-        "Reminder saved",
-        dayjs(doc.nextTriggerAt).format("MMM D • h:mm A"),
+        "Reminder updated",
+        dayjs(updated.nextTriggerAt).format("MMM D • h:mm A"),
       );
     } catch (e) {
-      console.log("Create reminder failed", e);
-      showError("Could not save reminder", "Please try again");
+      console.log(e);
+      showError("Update failed", "Please try again");
     } finally {
       setSaving(false);
       onClose();
@@ -159,20 +177,16 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
       backdropComponent={renderBackdrop}
       onDismiss={onClose}
       enablePanDownToClose
-      handleIndicatorStyle={{ backgroundColor: "#d4c4c7", width: 48 }}
       backgroundStyle={{ borderRadius: 28, backgroundColor: "#f5f5f5" }}
-      enableDynamicSizing={false}
     >
       <BottomSheetScrollView
         contentContainerStyle={{ padding: 24, paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
       >
-        {/* Header */}
         <View className="flex-row justify-between items-center mb-6">
           <Text className="text-lg font-medium text-foreground/80">
-            Create a reminder
+            Edit reminder
           </Text>
-          <TouchableOpacity onPress={onClose} className="p-1">
+          <TouchableOpacity onPress={onClose}>
             <X size={22} color="#999" />
           </TouchableOpacity>
         </View>
@@ -343,8 +357,11 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
             </TouchableOpacity>
           </View>
         )}
+
         <Text className="text-xs text-mutedForeground/60 mb-6 italic">
-          Next reminder: {dayjs(computeNextTrigger()).format("MMM D • h:mm A")}
+          {previewTrigger
+            ? `Next reminder: ${dayjs(previewTrigger).format("MMM D • h:mm A")}`
+            : ""}
         </Text>
 
         {/* Notify */}
@@ -402,22 +419,18 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
           </View>
         </TouchableOpacity>
 
-        {/* Create */}
         <Pressable
-          onPress={handleCreate}
+          onPress={handleUpdate}
           disabled={!title.trim()}
-          className={`bg-primary rounded-full items-center py-4 ${!title.trim() ? "opacity-50" : "opacity-100"}`}
+          className="bg-primary rounded-full items-center py-4"
         >
           {saving ? (
-            <View className="flex-row gap-2 items-center">
-              <Text className="text-white font-medium">Setting</Text>
-
-              <ActivityIndicator color="white" />
-            </View>
+            <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-white font-medium">Set this reminder</Text>
+            <Text className="text-white font-medium">Save changes</Text>
           )}
         </Pressable>
+
         <DatePicker
           modal
           mode="date"
@@ -446,4 +459,4 @@ const CreateReminderSheet = ({ isOpen, onClose, onCreate }: Props) => {
   );
 };
 
-export default CreateReminderSheet;
+export default EditReminderSheet;

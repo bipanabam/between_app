@@ -1,21 +1,28 @@
 import { notifyLabel, recurrenceLabel, typeConfig } from "@/lib/reminderConfig";
 import { ReminderDocument } from "@/types/type";
 import { LinearGradient } from "expo-linear-gradient";
-import { Lock } from "lucide-react-native";
+import { Edit, Lock, Trash } from "lucide-react-native";
 import { MotiView } from "moti";
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Alert, Pressable, Text, TouchableOpacity, View } from "react-native";
 
 interface Props {
   reminder: ReminderDocument;
   index: number;
   onDismiss?: (id: string) => void;
   onEdit?: (reminder: ReminderDocument) => void;
+  onDelete?: (reminderId: string) => void;
 }
 
 const SWIPE_THRESHOLD = 120;
 
-const ReminderCard = ({ reminder, index, onDismiss, onEdit }: Props) => {
+const ReminderCard = ({
+  reminder,
+  index,
+  onDismiss,
+  onEdit,
+  onDelete,
+}: Props) => {
   const config = typeConfig[reminder.type];
   const Icon = config.icon;
 
@@ -30,7 +37,7 @@ const ReminderCard = ({ reminder, index, onDismiss, onEdit }: Props) => {
       }}
     >
       <Pressable
-        onPress={() => onEdit?.(reminder)}
+        // onPress={() => onEdit?.(reminder)}
         onLongPress={() => onDismiss?.(reminder.$id)}
         delayLongPress={300}
         style={({ pressed }) => ({
@@ -105,6 +112,29 @@ const ReminderCard = ({ reminder, index, onDismiss, onEdit }: Props) => {
               </View>
             </View>
           </View>
+        </View>
+        <View className="absolute top-3 right-3 flex-row gap-4">
+          <TouchableOpacity onPress={() => onEdit?.(reminder)}>
+            <Edit size={15} color="#999" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() =>
+              Alert.alert(
+                "Delete reminder",
+                "Are you sure you want to delete this reminder?",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: () => onDelete?.(reminder.$id),
+                  },
+                ],
+              )
+            }
+          >
+            <Trash size={15} color="#EF4444" />
+          </TouchableOpacity>
         </View>
       </Pressable>
     </MotiView>

@@ -6,6 +6,8 @@ import CreateMomentSheet from "@/components/moments/CreateMomentSheet";
 import CreateReminderSheet from "@/components/moments/CreateReminderSheet";
 import CycleCard from "@/components/moments/CycleCard";
 import CycleSetupSheet from "@/components/moments/CycleSetupSheet";
+import EditMomentSheet from "@/components/moments/EditMomentSheet";
+import EditReminderSheet from "@/components/moments/EditReminderSheet";
 import EmptyState from "@/components/moments/EmptyState";
 import MomentCard from "@/components/moments/MomentCard";
 import MomentsCalendar from "@/components/moments/MomentsCalendar";
@@ -15,10 +17,15 @@ import ReminderCard from "@/components/moments/ReminderCard";
 import {
   createCycleReminderRows,
   deleteCycleReminders,
+  deleteMoment,
+  deleteReminder,
   getCurrentMonthReminders,
-  getMomentsWithReminders,
+  getMomentsWithUpcomingReminders,
+  getUpcomingReminders,
   upsertPeriodCycle,
 } from "@/lib/appwrite";
+
+import { showError, showSuccess } from "@/lib/toast";
 
 import { CycleConfig, MomentsDocument, ReminderDocument } from "@/types/type";
 import dayjs from "dayjs";
@@ -31,6 +38,7 @@ const Moments = () => {
   const [tab, setTab] = useState<"moments" | "calendar">("moments");
   const [reminders, setReminders] = useState<ReminderDocument[]>([]);
   const [moments, setMoments] = useState<MomentsDocument[]>([]);
+  const [allReminders, setAllRemimders] = useState<ReminderDocument[]>([]);
 
   const [selectedCalendarDate, setSelectedCalendarDate] =
     useState<dayjs.Dayjs | null>(null);
@@ -42,6 +50,39 @@ const Moments = () => {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isMomentSheetOpen, setMomentSheetOpen] = useState(false);
 
+  const [editingMoment, setEditingMoment] = useState<MomentsDocument | null>(
+    null,
+  );
+  const [isMomentEditSheetOpen, setIsMomentEditSheetOpen] = useState(false);
+
+  const [editingReminder, setEditingReminder] =
+    useState<ReminderDocument | null>(null);
+  const [isReminderEditSheetOpen, setIsReminderEditSheetOpen] = useState(false);
+
+  const handleEditMoment = (moment: MomentsDocument) => {
+    setEditingMoment(moment);
+    setIsMomentEditSheetOpen(true);
+  };
+
+  const handleDeleteMoment = async (momentId: string) => {
+    await deleteMoment(momentId);
+    setMoments((prev) => prev.filter((m) => m.$id !== momentId));
+
+    showSuccess("Moment deleted");
+  };
+
+  const handleEditReminder = (reminder: ReminderDocument) => {
+    setEditingReminder(reminder);
+    setIsReminderEditSheetOpen(true);
+  };
+
+  const handleDeleteReminder = async (reminderId: string) => {
+    await deleteReminder(reminderId);
+    setReminders((prev) => prev.filter((m) => m.$id !== reminderId));
+
+    showSuccess("Reminder deleted 🗑️");
+  };
+
   // Open sheet automatically if no reminders
   // useEffect(() => {
   //   if (tab === "moments" && reminders?.length === 0) {
@@ -51,20 +92,21 @@ const Moments = () => {
 
   useEffect(() => {
     const load = async () => {
-      const [r, m] = await Promise.all([
+      const [upcomingRem, upcomingMoments, allReminders] = await Promise.all([
+        getUpcomingReminders(),
+        getMomentsWithUpcomingReminders(),
         getCurrentMonthReminders(),
-        getMomentsWithReminders(),
       ]);
 
-      setReminders(r);
-      setMoments(m);
+      setReminders(upcomingRem);
+      setMoments(upcomingMoments);
+      setAllRemimders(allReminders);
     };
 
     load();
   }, []);
 
   const handleCreate = (newReminder: ReminderDocument) => {
-    console.log(newReminder);
     setReminders((prev) => [newReminder, ...prev]);
   };
 
@@ -82,6 +124,9 @@ const Moments = () => {
       setCycleEnabled(config.isEnabled);
       setIsCycleSheetOpen(false);
       // setCycleSaving(false); // stop spinner early
+      showSuccess(
+        config.isEnabled ? "Cycle care enabled 🌸" : "Cycle care disabled",
+      );
 
       // background work — don't block UI
       if (config.isEnabled) {
@@ -94,6 +139,7 @@ const Moments = () => {
       }
     } catch (e) {
       console.log("Cycle save failed", e);
+      showError("Cycle save failed");
     } finally {
       setCycleSaving(false);
     }
@@ -114,15 +160,11 @@ const Moments = () => {
     },
   ];
 
-  const upcomingMoments = [...moments].sort((a, b) =>
-    a.momentDate.localeCompare(b.momentDate),
-  );
-
   const sections = [
     {
       title: "Upcoming moments",
       type: "moments",
-      data: upcomingMoments,
+      data: moments,
     },
     {
       title: "Upcoming reminders",
@@ -138,7 +180,7 @@ const Moments = () => {
 
         {tab === "moments" ? (
           <>
-            {reminders?.length === 0 ? (
+            {moments.length === 0 && reminders.length === 0 ? (
               <EmptyState onCreateFirst={() => setIsSheetOpen(true)} />
             ) : (
               <>
@@ -169,14 +211,24 @@ const Moments = () => {
                     if (section.type === "moments") {
                       return (
                         <View className="px-5">
-                          <MomentCard moment={item} index={index} />
+                          <MomentCard
+                            moment={item}
+                            index={index}
+                            onEdit={handleEditMoment}
+                            onDelete={handleDeleteMoment}
+                          />
                         </View>
                       );
                     }
 
                     return (
                       <View className="px-5">
-                        <ReminderCard reminder={item} index={index} />
+                        <ReminderCard
+                          reminder={item}
+                          index={index}
+                          onEdit={handleEditReminder}
+                          onDelete={handleDeleteReminder}
+                        />
                       </View>
                     );
                   }}
@@ -201,7 +253,7 @@ const Moments = () => {
             }
             renderItem={() => (
               <MomentsCalendar
-                reminders={reminders}
+                reminders={allReminders}
                 onDayPress={setSelectedCalendarDate}
               />
             )}
@@ -222,6 +274,19 @@ const Moments = () => {
         onCreate={handleCreate}
       />
 
+      <EditReminderSheet
+        isOpen={isReminderEditSheetOpen}
+        onClose={() => setIsReminderEditSheetOpen(false)}
+        reminder={editingReminder}
+        onUpdated={(updated) => {
+          setReminders((prev) =>
+            prev.map((m) => (m.$id === updated.$id ? updated : m)),
+          );
+
+          showSuccess("Reminder updated ✨");
+        }}
+      />
+
       <CycleSetupSheet
         isOpen={isCycleSheetOpen}
         onClose={() => setIsCycleSheetOpen(false)}
@@ -232,7 +297,22 @@ const Moments = () => {
       <CreateMomentSheet
         isOpen={isMomentSheetOpen}
         onClose={() => setMomentSheetOpen(false)}
-        onSaved={(m) => console.log("moment created")}
+        onSaved={(m) => {
+          showSuccess("Moment saved 💖");
+        }}
+      />
+
+      <EditMomentSheet
+        isOpen={isMomentEditSheetOpen}
+        onClose={() => setIsMomentEditSheetOpen(false)}
+        moment={editingMoment}
+        onUpdated={(updated) => {
+          setMoments((prev) =>
+            prev.map((m) => (m.$id === updated.$id ? updated : m)),
+          );
+
+          showSuccess("Moment updated ✨");
+        }}
       />
 
       <CalendarReminderSheet

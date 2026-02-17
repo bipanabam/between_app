@@ -1,4 +1,4 @@
-import { createMomentWithMedia, createReminderForMoment } from "@/lib/appwrite";
+import { editMomentWithMedia } from "@/lib/appwrite";
 import { useAuth } from "@/providers/AuthProvider";
 import { MomentsDocument } from "@/types/type";
 import {
@@ -8,11 +8,8 @@ import {
 } from "@gorhom/bottom-sheet";
 import dayjs from "dayjs";
 import * as ImagePicker from "expo-image-picker";
-import { Bell, Camera, Flag, Heart, Star } from "lucide-react-native";
+import { Bell, CalendarIcon, Camera, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import DatePicker from "react-native-date-picker";
-
-import { CalendarIcon, X } from "lucide-react-native";
 import {
   ActivityIndicator,
   Animated,
@@ -24,45 +21,58 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-const momentTypes = [
-  { value: "memory", label: "Memory", icon: Camera },
-  { value: "date-night", label: "Date night", icon: Heart },
-  { value: "anniversary", label: "Anniversary", icon: Star },
-  { value: "milestone", label: "Milestone", icon: Flag },
-];
+import DatePicker from "react-native-date-picker";
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  onSaved: (moment: MomentsDocument) => void;
+  moment: MomentsDocument | null;
+  onUpdated: (moment: MomentsDocument) => void;
 };
 
-const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
+const momentTypes = [
+  { value: "memory", label: "Memory", icon: Camera },
+  { value: "date-night", label: "Date night", icon: Bell },
+  { value: "anniversary", label: "Anniversary", icon: Bell },
+  { value: "milestone", label: "Milestone", icon: Bell },
+];
+
+const EditMomentSheet = ({ isOpen, onClose, moment, onUpdated }: Props) => {
   const ref = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["90%"], []);
   const { temporarilyIgnoreAppLock } = useAuth();
 
-  const [title, setTitle] = useState("");
-  const [note, setNote] = useState("");
-  const [type, setType] = useState<MomentsDocument["type"]>("memory");
-  const [date, setDate] = useState(dayjs());
-  const [hasReminder, setHasReminder] = useState(false);
+  // form state
+  const [title, setTitle] = useState(moment?.title ?? "");
+  const [note, setNote] = useState(moment?.note ?? "");
+  const [type, setType] = useState<MomentsDocument["type"]>(
+    moment?.type ?? "memory",
+  );
+  const [date, setDate] = useState(moment ? dayjs(moment.momentDate) : dayjs());
+  const [hasReminder, setHasReminder] = useState(moment?.hasReminder ?? false);
   const [notifyPartner, setNotifyPartner] = useState(true);
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(moment?.isPrivate ?? false);
 
-  const [selectedMediaUri, setSelectedMediaUri] = useState<string | null>(null);
+  const [selectedMediaUri, setSelectedMediaUri] = useState(
+    moment?.mediaUrl ?? null,
+  );
   const [selectedMimeType, setSelectedMimeType] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [baseTime, setBaseTime] = useState<Date>(() => {
+    if (moment?.reminderConfig?.triggerAt) {
+      const triggerAt = moment.reminderConfig.triggerAt;
+      const d = new Date(triggerAt);
+      return d;
+    }
+    return new Date(); // fallback
+  });
+
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  const [baseTime, setBaseTime] = useState<Date>(new Date());
-  const [timePickerOpen, setTimePickerOpen] = useState(false);
-
-  // animated reveal for reminder options
-  const reminderAnim = useRef(new Animated.Value(1)).current;
+  const reminderAnim = useRef(new Animated.Value(hasReminder ? 1 : 0)).current;
 
   useEffect(() => {
     if (isOpen) ref.current?.present();
@@ -77,90 +87,31 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
     }).start();
   }, [hasReminder]);
 
-  const marked = {
-    [date.format("YYYY-MM-DD")]: {
-      selected: true,
-      selectedColor: "#bc8f97",
-    },
-  };
-
-  const handleSave = async () => {
-    if (!title.trim() || saving) return;
-
-    try {
-      setSaving(true);
-      const reminderConfig = hasReminder
-        ? {
-            notifyPartner,
-            triggerAt: dayjs(date)
-              .hour(dayjs(baseTime).hour())
-              .minute(dayjs(baseTime).minute())
-              .second(0)
-              .toISOString(),
-          }
-        : null;
-
-      const moment = await createMomentWithMedia({
-        fileUri: selectedMediaUri,
-        mime: selectedMimeType,
-
-        type,
-        title,
-        note,
-        momentDate: date.toISOString(),
-        hasReminder,
-        reminderConfig: reminderConfig,
-        isPrivate,
-      });
-
-      if (hasReminder) {
-        // combine moment date and baseTime into one datetime string
-        const triggerAt = dayjs(date)
-          .hour(dayjs(baseTime).hour())
-          .minute(dayjs(baseTime).minute())
-          .second(0)
-          .toISOString();
-
-        await createReminderForMoment(moment.$id, {
-          triggerAt,
-          notifyPartner,
-          momentTitle: moment.title,
-        });
-      }
-
-      onSaved(moment);
-
-      // reset form
-      setTitle("");
-      setNote("");
-      setSelectedMediaUri(null);
-      setSelectedMimeType(null);
-
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
+  useEffect(() => {
+    // reset when moment changes
+    setTitle(moment?.title ?? "");
+    setNote(moment?.note ?? "");
+    setType(moment?.type ?? "memory");
+    setDate(moment ? dayjs(moment.momentDate) : dayjs());
+    setHasReminder(moment?.hasReminder ?? false);
+    setIsPrivate(moment?.isPrivate ?? false);
+    setSelectedMediaUri(moment?.mediaUrl ?? null);
+  }, [moment]);
 
   const pickImage = async () => {
     temporarilyIgnoreAppLock();
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        console.log("Media permission denied");
-        return;
-      }
+      if (!perm.granted) return;
 
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.85,
-        // allowsEditing: true,
       });
 
       if (res.canceled) return;
 
       const asset = res.assets[0];
-
       setSelectedMediaUri(asset.uri);
       setSelectedMimeType(asset.mimeType ?? "image/jpeg");
     } catch (err) {
@@ -172,6 +123,49 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
     <BottomSheetBackdrop {...props} disappearsOnIndex={-1} opacity={0.3} />
   );
 
+  const handleSave = async () => {
+    if (!moment || !title.trim() || saving) return;
+    setSaving(true);
+
+    try {
+      // Prepare reminder config if reminder is enabled
+      let reminderConfig = undefined;
+      if (hasReminder) {
+        reminderConfig = {
+          triggerAt: dayjs(date)
+            .hour(dayjs(baseTime).hour())
+            .minute(dayjs(baseTime).minute())
+            .second(0)
+            .toISOString(),
+          notifyPartner,
+          momentTitle: title,
+          momentNote: note,
+        };
+      }
+
+      const updatedMoment = await editMomentWithMedia(moment.$id, {
+        title,
+        note,
+        type,
+        momentDate: date.toISOString(),
+        hasReminder,
+        isPrivate,
+        reminderConfig,
+        fileUri: selectedMediaUri ?? undefined,
+        mime: selectedMimeType ?? undefined,
+      });
+
+      if (updatedMoment) {
+        onUpdated(updatedMoment);
+        onClose();
+      }
+    } catch (err) {
+      console.error("Failed to save moment:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
       <BottomSheetModal
@@ -182,16 +176,14 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
         enablePanDownToClose
         handleIndicatorStyle={{ backgroundColor: "#e5d4d8", width: 48 }}
         backgroundStyle={{ borderRadius: 28, backgroundColor: "#faf8f8" }}
-        enableDynamicSizing={false}
       >
         <BottomSheetScrollView
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-          showsVerticalScrollIndicator={true}
         >
           {/* Header */}
           <View className="flex-row justify-between items-center mb-5">
             <Text className="text-base font-medium text-foreground/80">
-              Capture a moment
+              Edit moment
             </Text>
             <TouchableOpacity onPress={onClose} className="p-1">
               <X size={22} color="#999" />
@@ -251,7 +243,6 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
           <Text className="text-sm text-mutedForeground mb-2 font-normal">
             Kind of moment
           </Text>
-
           <View className="flex-row flex-wrap gap-2 mb-5">
             {momentTypes.map((m) => {
               const Icon = m.icon;
@@ -280,7 +271,6 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
             <Text className="text-sm text-mutedForeground mb-2 font-normal">
               Moment date
             </Text>
-
             <TouchableOpacity
               onPress={() => setDatePickerOpen(true)}
               className="flex-row items-center gap-2 bg-card rounded-xl px-4 py-3"
@@ -332,9 +322,8 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
             </View>
           )}
 
-          {/* Reminder & Notify Partner */}
+          {/* Reminder toggle */}
           <View className="bg-card rounded-xl mb-5 overflow-hidden">
-            {/* Reminder toggle */}
             <TouchableOpacity
               onPress={() => setHasReminder((v) => !v)}
               className="flex-row items-center gap-3 px-4 py-3"
@@ -350,13 +339,12 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
               <Switch value={hasReminder} onValueChange={setHasReminder} />
             </TouchableOpacity>
 
-            {/* Notify partner, visible only if reminder is enabled */}
             {hasReminder && (
               <Animated.View
                 style={{
                   maxHeight: reminderAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0, 60], // adjust height
+                    outputRange: [0, 60],
                   }),
                   opacity: reminderAnim,
                   overflow: "hidden",
@@ -383,7 +371,7 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
             <Switch value={isPrivate} onValueChange={setIsPrivate} />
           </View>
 
-          {/* Save */}
+          {/* Save button */}
           <TouchableOpacity
             onPress={handleSave}
             disabled={!title.trim() || saving}
@@ -393,15 +381,15 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
             {saving ? (
               <View className="flex-row gap-2 items-center">
                 <Text className="text-white font-medium">Saving</Text>
-
                 <ActivityIndicator color="white" />
               </View>
             ) : (
-              <Text className="text-white font-medium">Save this moment</Text>
+              <Text className="text-white font-medium">Save changes</Text>
             )}
           </TouchableOpacity>
         </BottomSheetScrollView>
       </BottomSheetModal>
+
       {/* Fullscreen image preview */}
       <Modal visible={previewOpen} transparent={true}>
         <View className="flex-1 bg-black items-center justify-center">
@@ -423,4 +411,4 @@ const CreateMomentSheet = ({ isOpen, onClose, onSaved }: Props) => {
   );
 };
 
-export default CreateMomentSheet;
+export default EditMomentSheet;

@@ -143,9 +143,10 @@ export interface ReminderDocument extends Models.Document {
 
   scheduleType: "once" | "daily" | "weekly" | "monthly";
 
-  periodCycleId: string | null;
+  periodCycleId?: string | null;
+  momentId?: string | null;
 
-  startAt: ISODate;
+  startAt?: ISODate;
   nextTriggerAt: ISODate;
 
   recurrenceRule: string | null;
@@ -171,7 +172,6 @@ export type CreateReminderInput = {
   scheduleType: RecurrenceType;
 
   nextTriggerAt: string;
-  startAt: string;
 
   weekday?: number;
   monthDay?: number;
@@ -181,6 +181,21 @@ export type CreateReminderInput = {
   isPrivate: boolean;
 
   periodCycleId?: string | null;
+  momentId?: string | null;
+};
+
+export type UpdateReminderInput = {
+  title: string;
+  note?: string;
+
+  type: ReminderType;
+  scheduleType: RecurrenceType;
+  nextTriggerAt: string;
+  weekday?: number;
+  monthDay?: number;
+  baseTime: Date;
+  notify: NotifyType;
+  isPrivate: boolean;
 };
 
 export type CycleConfig = {
@@ -221,7 +236,7 @@ export interface MomentsDocument extends Models.Document {
   momentDate: datetime;
 
   hasReminder: boolean;
-  reminderConfig: string | null;
+  reminderConfig: any;
 
   mediaUrl: string | null;
 

@@ -10,6 +10,7 @@ import {
   QuestionAnswer,
   ReminderDocument,
   ThinkingOfYouPayload,
+  UpdateReminderInput,
   UserDocument,
 } from "@/types/type";
 import dayjs from "dayjs";
@@ -1230,6 +1231,33 @@ export const getCurrentMonthReminders = async (): Promise<
 
   const pairId = userDoc.pairId;
 
+  const startOfMonth = dayjs().startOf("month").startOf("day").toISOString();
+  const endOfMonth = dayjs().endOf("month").endOf("day").toISOString();
+
+  const res = await databases.listDocuments<ReminderDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.remindersCollectionId,
+    [
+      Query.equal("pairId", pairId),
+      Query.equal("isActive", true),
+
+      //upcoming only
+      Query.greaterThanEqual("nextTriggerAt", startOfMonth),
+      Query.lessThanEqual("nextTriggerAt", endOfMonth),
+
+      Query.limit(100),
+    ],
+  );
+
+  return res.documents;
+};
+
+export const getUpcomingReminders = async (): Promise<ReminderDocument[]> => {
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) return [];
+
+  const pairId = userDoc.pairId;
+
   const now = dayjs().toISOString();
   const endOfMonth = dayjs().endOf("month").endOf("day").toISOString();
 
@@ -1240,6 +1268,7 @@ export const getCurrentMonthReminders = async (): Promise<
       Query.equal("pairId", pairId),
       Query.equal("isActive", true),
       Query.notEqual("type", "cycle"),
+      Query.isNull("momentId"),
 
       //upcoming only
       Query.greaterThanEqual("nextTriggerAt", now),
@@ -1252,7 +1281,9 @@ export const getCurrentMonthReminders = async (): Promise<
   return res.documents;
 };
 
-export const getMomentsWithReminders = async (): Promise<MomentsDocument[]> => {
+export const getMomentsWithUpcomingReminders = async (): Promise<
+  MomentsDocument[]
+> => {
   const userDoc = await ensureUserDocument();
   if (!userDoc.pairId) return [];
 
@@ -1261,22 +1292,39 @@ export const getMomentsWithReminders = async (): Promise<MomentsDocument[]> => {
   const now = dayjs().toISOString();
   const endOfMonth = dayjs().endOf("month").endOf("day").toISOString();
 
-  const res = await databases.listDocuments<MomentsDocument>(
+  // Get reminders due this month
+  const reminderRes = await databases.listDocuments<ReminderDocument>(
     appwriteConfig.databaseId,
-    appwriteConfig.momentsCollectionId,
+    appwriteConfig.remindersCollectionId,
     [
       Query.equal("pairId", pairId),
-      Query.equal("hasReminder", true),
+      Query.equal("isActive", true),
+      Query.isNotNull("momentId"),
 
-      // upcoming only
-      Query.greaterThanEqual("momentDate", now),
-      Query.lessThanEqual("momentDate", endOfMonth),
+      Query.greaterThanEqual("nextTriggerAt", now),
+      Query.lessThanEqual("nextTriggerAt", endOfMonth),
 
       Query.limit(100),
     ],
   );
 
-  return res.documents;
+  if (!reminderRes.documents.length) return [];
+
+  // Collect moment IDs
+  const momentIds = reminderRes.documents
+    .map((r) => r.momentId)
+    .filter(Boolean);
+
+  if (!momentIds.length) return [];
+
+  // Fetch moments
+  const momentsRes = await databases.listDocuments<MomentsDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.momentsCollectionId,
+    [Query.equal("$id", momentIds), Query.limit(100)],
+  );
+
+  return momentsRes.documents;
 };
 
 /**
@@ -1397,6 +1445,8 @@ export const createReminderForMoment = async (
   config: {
     triggerAt: string;
     notifyPartner: boolean;
+    momentTitle?: string;
+    momentNote?: string;
   },
 ) => {
   const me = await account.get();
@@ -1413,8 +1463,10 @@ export const createReminderForMoment = async (
       pairId: userDoc.pairId,
       createdBy: userId,
 
-      title: "Moment reminder",
-      note: null,
+      title: config.momentTitle
+        ? `Moment: ${config.momentTitle}`
+        : "Moment reminder",
+      note: config.momentNote ?? null,
 
       type: "nudge",
       scheduleType: "once",
@@ -1437,6 +1489,105 @@ export const createReminderForMoment = async (
   );
 };
 
+export const editMomentWithMedia = async (
+  momentId: string,
+  {
+    fileUri,
+    mime,
+    ...updates
+  }: {
+    fileUri?: string | null;
+    mime?: string | null;
+  } & Partial<Omit<MomentsDocument, "$id" | "pairId" | "createdBy">>,
+): Promise<MomentsDocument | void> => {
+  let mediaUrl: string | undefined;
+
+  // Upload new media if provided
+  if (fileUri && mime) {
+    const fileId = await uploadMedia(fileUri, mime);
+    mediaUrl = getFileUrl(fileId);
+  }
+
+  const updatedData = {
+    ...updates,
+    ...(mediaUrl ? { mediaUrl } : {}),
+    reminderConfig: updates.reminderConfig
+      ? JSON.stringify(updates.reminderConfig)
+      : null,
+  };
+
+  try {
+    // Update the moment document
+    const res = await databases.updateDocument<MomentsDocument>(
+      appwriteConfig.databaseId,
+      appwriteConfig.momentsCollectionId,
+      momentId,
+      updatedData,
+    );
+
+    // Handle reminders
+    if (updates.hasReminder !== undefined) {
+      // Delete existing reminders
+      const existingReminders = await databases.listDocuments<ReminderDocument>(
+        appwriteConfig.databaseId,
+        appwriteConfig.remindersCollectionId,
+        [Query.equal("momentId", momentId)],
+      );
+
+      for (const r of existingReminders.documents) {
+        await databases.deleteDocument(
+          appwriteConfig.databaseId,
+          appwriteConfig.remindersCollectionId,
+          r.$id,
+        );
+      }
+
+      // Create new reminder if needed
+      if (updates.hasReminder && updates.reminderConfig) {
+        // parse reminderConfig if it is string
+        const reminderConfig =
+          typeof updates.reminderConfig === "string"
+            ? JSON.parse(updates.reminderConfig)
+            : updates.reminderConfig;
+
+        await createReminderForMoment(momentId, reminderConfig);
+      }
+    }
+
+    return res;
+  } catch (e) {
+    console.error("editMomentWithMedia error:", e);
+  }
+};
+
+export const deleteMoment = async (momentId: string) => {
+  try {
+    // Delete associated reminders first
+    const existingReminders = await databases.listDocuments<ReminderDocument>(
+      appwriteConfig.databaseId,
+      appwriteConfig.remindersCollectionId,
+      [Query.equal("momentId", momentId)],
+    );
+
+    for (const r of existingReminders.documents) {
+      await databases.deleteDocument(
+        appwriteConfig.databaseId,
+        appwriteConfig.remindersCollectionId,
+        r.$id,
+      );
+    }
+
+    // Delete the moment itself
+    await databases.deleteDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.momentsCollectionId,
+      momentId,
+    );
+  } catch (e) {
+    console.error(e);
+  }
+};
+
 // REMINDERS
 export const createReminder = async (
   input: CreateReminderInput,
@@ -1447,13 +1598,13 @@ export const createReminder = async (
     type,
     scheduleType,
     nextTriggerAt,
-    startAt,
     weekday,
     monthDay,
     baseTime,
     notify,
     isPrivate,
     periodCycleId,
+    momentId,
   } = input;
 
   const me = await account.get();
@@ -1487,12 +1638,12 @@ export const createReminder = async (
       title: title.trim(),
       note: note ?? null,
 
-      type: input.type,
+      type: type,
       scheduleType,
 
       periodCycleId: periodCycleId ?? null,
+      momentId: momentId ?? null,
 
-      startAt,
       nextTriggerAt,
 
       recurrenceRule,
@@ -1504,4 +1655,66 @@ export const createReminder = async (
       isActive: true,
     },
   );
+};
+
+export const updateReminder = async (
+  reminderId: string,
+  input: UpdateReminderInput,
+): Promise<ReminderDocument> => {
+  const {
+    title,
+    note,
+    type,
+    scheduleType,
+    nextTriggerAt,
+    weekday,
+    monthDay,
+    baseTime,
+    notify,
+    isPrivate,
+  } = input;
+
+  const timeStr = dayjs(baseTime).format("HH:mm");
+
+  const recurrenceRule =
+    scheduleType === "once"
+      ? null
+      : JSON.stringify({
+          time: timeStr,
+          weekday: scheduleType === "weekly" ? weekday : undefined,
+          dayOfMonth: scheduleType === "monthly" ? monthDay : undefined,
+        });
+
+  const notifySelf = notify === "me" || notify === "both";
+  const notifyPartner = notify === "partner" || notify === "both";
+
+  return databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.remindersCollectionId,
+    reminderId,
+    {
+      title,
+      note,
+      type,
+      scheduleType,
+      nextTriggerAt,
+      startAt: nextTriggerAt,
+      recurrenceRule,
+      notifySelf,
+      notifyPartner,
+      private: isPrivate,
+    },
+  );
+};
+
+export const deleteReminder = async (reminderId: string) => {
+  try {
+    await databases.deleteDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.remindersCollectionId,
+      reminderId,
+    );
+  } catch (e) {
+    console.error(e);
+  }
 };

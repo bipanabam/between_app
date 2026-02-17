@@ -1,9 +1,4 @@
-import {
-  HandHeart,
-  Heart,
-  Leaf,
-  Moon
-} from "lucide-react-native";
+import { HandHeart, Heart, Leaf, Moon, Sparkles } from "lucide-react-native";
 
 export type ReminderType = "nudge" | "ritual" | "custom" | "cycle";
 
@@ -74,3 +69,53 @@ export const emotionalLabels: Record<ReminderType, string> = {
   custom: "Something meaningful you want to remember",
   cycle: "A gentle partner care window",
 };
+
+export const typeOptions: {
+  value: ReminderType;
+  label: string;
+  subtitle: string;
+  icon: any;
+  defaultRecurrence: RecurrenceType;
+}[] = [
+  // {
+  //   value: "memory",
+  //   label: "Memory",
+  //   subtitle: "A date that matters (e.g. Birthday, anniversary, special day)",
+  //   icon: Calendar,
+  //   defaultRecurrence: "monthly",
+  // },
+  {
+    value: "nudge",
+    label: "A nudge",
+    subtitle: "A small caring reminder",
+    icon: Heart,
+    defaultRecurrence: "daily",
+  },
+  {
+    value: "ritual",
+    label: "Connection ritual",
+    subtitle: "A repeating moment",
+    icon: Moon,
+    defaultRecurrence: "weekly",
+  },
+  {
+    value: "custom",
+    label: "Something else",
+    subtitle: "Something personal",
+    icon: Sparkles,
+    defaultRecurrence: "once",
+  },
+];
+
+export const recurrenceOptions: { value: RecurrenceType; label: string }[] = [
+  { value: "once", label: "One time" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+export const notifyOptions: { value: NotifyType; label: string }[] = [
+  { value: "me", label: "Just me" },
+  { value: "partner", label: "Partner" },
+  { value: "both", label: "Both of us" },
+];
