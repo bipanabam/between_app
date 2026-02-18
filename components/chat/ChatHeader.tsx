@@ -1,6 +1,6 @@
-import { Image, Text, View } from "react-native";
+import { Animated, Image, Text, View } from "react-native";
 
-const ChatHeader = ({ name, status, avatar, color }: any) => {
+const ChatHeader = ({ name, status, online, avatar, color }: any) => {
   return (
     <View className="flex-row items-center px-4 py-3 gap-3">
       {/* Avatar */}
@@ -21,7 +21,12 @@ const ChatHeader = ({ name, status, avatar, color }: any) => {
         )}
 
         {/* presence dot */}
-        <View className="absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full bg-green-400 border border-white" />
+        <Animated.View
+          style={{ opacity: online ? 1 : 0.7 }}
+          className={`absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full border border-white ${
+            online ? "bg-emerald-400" : "bg-gray-400"
+          }`}
+        />
       </View>
 
       {/* Text block */}

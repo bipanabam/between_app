@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 
 export const getPresenceLabel = (last?: string) => {
@@ -6,8 +6,8 @@ export const getPresenceLabel = (last?: string) => {
 
   const diff = Date.now() - new Date(last).getTime();
 
-  if (diff < 3 * 60 * 1000) return "Here with you";
-  if (diff < 15 * 60 * 1000) return "Recently here";
+  if (diff < 3 * 60 * 1000) return "Online now";
+  if (diff < 15 * 60 * 1000) return "Active recently";
   if (diff < 24 * 60 * 60 * 1000) return "Visited today";
 
   return "";
@@ -20,7 +20,9 @@ interface PartnerCardProps {
   mood: string;
   color: string;
   lastActiveAt: string;
+  me?: boolean;
   onPressAvatar?: () => void;
+  onPressMood?: () => void;
 }
 
 const PartnerCard = ({
@@ -30,7 +32,9 @@ const PartnerCard = ({
   mood,
   color,
   lastActiveAt,
+  me,
   onPressAvatar,
+  onPressMood,
 }: PartnerCardProps) => {
   // soft pulse animation when online
   const pulse = useRef(new Animated.Value(1)).current;
@@ -77,6 +81,11 @@ const PartnerCard = ({
     return () => loop.stop();
   }, [online]);
 
+  const presenceLabel = useMemo(
+    () => getPresenceLabel(lastActiveAt),
+    [lastActiveAt],
+  );
+
   return (
     <Pressable onPress={onPressAvatar} className="items-center">
       <Animated.View
@@ -87,11 +96,13 @@ const PartnerCard = ({
         }}
         className="w-24 h-24 rounded-full items-center justify-center"
       >
+        {/* Mood (only if set) */}
         {mood && (
-          <View className="absolute -top-1 -right-1">
+          <Pressable className="absolute -top-1 -right-1">
             <Text style={{ fontSize: 16 }}>{mood}</Text>
-          </View>
+          </Pressable>
         )}
+
         <View
           className="w-24 h-24 rounded-full items-center justify-center"
           style={{
@@ -121,15 +132,38 @@ const PartnerCard = ({
       {/* <Text style={{ fontSize: 20 }}>{mood}</Text> */}
 
       {/* emotional presence label */}
-      <Text
-        className={`text-sm mt-1 ${
-          online ? "text-primary/70" : "text-mutedForeground/60"
-        }`}
-      >
-        {getPresenceLabel(lastActiveAt)}
-      </Text>
+      {me && !mood ? (
+        <Text className="text-xs mt-2 text-primary/70">
+          Tap to set your mood
+        </Text>
+      ) : (
+        <Text
+          className={`text-sm mt-1 ${
+            online ? "text-primary/70" : "text-mutedForeground/60"
+          }`}
+        >
+          {presenceLabel}
+        </Text>
+      )}
+
+      {!me && mood ? (
+        <Pressable onPress={onPressMood}>
+          <Text className="text-xs mt-2 text-primary/70">
+            Feeling {mood} — tap to respond
+          </Text>
+        </Pressable>
+      ) : (
+        ""
+      )}
     </Pressable>
   );
 };
 
-export default PartnerCard;
+export default React.memo(
+  PartnerCard,
+  (prev, next) =>
+    prev.name === next.name &&
+    prev.online === next.online &&
+    prev.mood === next.mood &&
+    prev.lastActiveAt === next.lastActiveAt,
+);

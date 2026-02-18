@@ -5,7 +5,9 @@ import RotatingMicrocopy from "@/components/RotatingMicrocopy";
 import DailyQuestionCard from "@/components/us/DailyQuestionCard";
 import LoveRitualPanel from "@/components/us/LoveRitualPanel";
 import MoodBottomSheet from "@/components/us/MoodBottomSheet";
+import MoodInsightModal from "@/components/us/MoodInsightModal";
 import TogetherSinceCard from "@/components/us/TogetherSinceCard";
+import { getEmotionTheme } from "@/constant/moodGoups";
 import { privacyMicrocopy } from "@/constant/privacyMicrocopy";
 import { QuestionCategory } from "@/constant/questions";
 import {
@@ -20,6 +22,7 @@ import {
   getQuestionText,
   hasSentLoveToday,
   proposeRelationshipDate,
+  sendMessage,
   sendThinkingOfYouNotification,
   submitQuestionAnswer,
   updateMood,
@@ -27,6 +30,7 @@ import {
 } from "@/lib/appwrite";
 import { isOnline } from "@/lib/helper";
 import { registerForPushToken } from "@/lib/push";
+import { showError, showSuccess } from "@/lib/toast";
 import { PairStats, QuestionAnswer } from "@/types/type";
 import { useRouter } from "expo-router";
 import {
@@ -63,6 +67,9 @@ const Us = () => {
   const [myMood, setMyMood] = useState<string | null>(null);
   const [partnerMood, setPartnerMood] = useState<string | null>(null);
   const [showMoodSheet, setShowMoodSheet] = useState(false);
+
+  const [showMoodInsightSheet, setShowMoodInsightSheet] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
 
   const [currentCategory, setCurrentCategory] =
     useState<QuestionCategory>("light");
@@ -129,6 +136,16 @@ const Us = () => {
 
     setupPush();
   }, [me]);
+
+  useEffect(() => {
+    if (!partner?.moodUpdatedAt) return;
+
+    const diff = Date.now() - new Date(partner.moodUpdatedAt).getTime();
+
+    if (diff < 10 * 60 * 1000) {
+      setShowMoodInsightSheet(true);
+    }
+  }, [partner?.moodUpdatedAt]);
 
   const handleProposeDate = async (date: Date) => {
     if (!pair || !me) return;
@@ -227,6 +244,53 @@ const Us = () => {
     }
   };
 
+  const handleSendMessage = async (message: string) => {
+    if (!pair || !partner) return;
+
+    const emoji = partner.moodEmoji ?? "";
+    const label = partner.moodLabel ?? "your mood";
+
+    try {
+      setIsSendingMessage(true);
+      await sendMessage({
+        pairId: pair.$id,
+        text: `I saw you're feeling "${emoji}(${label})"
+         ${message}`,
+        type: "text",
+      });
+      setShowMoodInsightSheet(false);
+
+      showSuccess("Message sent 🤍");
+    } catch (err) {
+      console.log("Send failed:", err);
+      showError("Error sending message");
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  const handlePrimaryMoodAction = async () => {
+    if (!pair || !partner) return;
+
+    const theme = getEmotionTheme(partner.moodLabel);
+
+    try {
+      setIsSendingMessage(true);
+      await sendMessage({
+        pairId: pair.$id,
+        text: theme.suggestedMessage,
+        type: "text",
+      });
+
+      showSuccess("Sent something gentle 💞");
+      setShowMoodInsightSheet(false);
+    } catch {
+      showError("Couldn't send");
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
   if (!me || !partner || !pair) {
     return (
       <View className="flex-1 justify-center items-center">
@@ -256,6 +320,7 @@ const Us = () => {
             color="#E57399"
             online={partnerOnline}
             lastActiveAt={partner.lastActiveAt}
+            onPressAvatar={() => setShowMoodInsightSheet(true)}
           />
 
           <PartnerCard
@@ -265,6 +330,7 @@ const Us = () => {
             color="#2F6BD6"
             online={meOnline}
             lastActiveAt={me.lastActiveAt}
+            me={true}
             onPressAvatar={() => setShowMoodSheet(true)}
           />
         </View>
@@ -380,6 +446,17 @@ const Us = () => {
             });
           }}
           onClose={() => setShowMoodSheet(false)}
+        />
+
+        <MoodInsightModal
+          visible={showMoodInsightSheet}
+          emoji={partner.moodEmoji}
+          label={partner.moodLabel}
+          since={partner.moodUpdatedAt}
+          sending={isSendingMessage}
+          onClose={() => setShowMoodInsightSheet(false)}
+          onSendMessage={handleSendMessage}
+          onPrimaryAction={handlePrimaryMoodAction}
         />
       </ScrollView>
     </SafeAreaView>

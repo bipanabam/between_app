@@ -11,6 +11,7 @@ import {
   markDelivered,
   markMessagesRead,
 } from "@/lib/appwrite";
+import { isOnline } from "@/lib/helper";
 import { MessageDocument } from "@/types/type";
 import { formatChatDate } from "@/utility/formatChatDate";
 import { LegendList } from "@legendapp/list";
@@ -31,6 +32,7 @@ const EMOJIS = ["❤️", "🤍", "🥰", "🥹", "🌸", "✨", "🫶", "🫂",
 const Chat = () => {
   const [partner, setPartner] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
+
   const [messages, setMessages] = useState<MessageDocument[]>([]);
   const [replyingTo, setReplyingTo] = useState<MessageDocument | null>(null);
   const [isloading, setIsLoading] = useState(false);
@@ -40,6 +42,8 @@ const Chat = () => {
     position: { x: number; y: number };
     mine: boolean;
   } | null>(null);
+
+  const partnerOnline = isOnline(partner?.lastActiveAt);
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
@@ -250,7 +254,8 @@ const Chat = () => {
           name={partner?.nickname}
           avatar={partner?.avatar}
           color="#E57399"
-          status="here with you"
+          status={partnerOnline ? "Here with you" : ""}
+          online={partnerOnline}
         />
 
         {/* Messages */}
