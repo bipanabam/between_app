@@ -3,6 +3,7 @@ import HeartLoader from "@/components/HearLoader";
 import PartnerCard from "@/components/PartnerCard";
 import RotatingMicrocopy from "@/components/RotatingMicrocopy";
 import DailyQuestionCard from "@/components/us/DailyQuestionCard";
+import LastMemoryCard from "@/components/us/LastMemoryCard";
 import LoveRitualPanel from "@/components/us/LoveRitualPanel";
 import MoodBottomSheet from "@/components/us/MoodBottomSheet";
 import MoodInsightModal from "@/components/us/MoodInsightModal";
@@ -14,6 +15,7 @@ import {
   confirmRelationshipDate,
   ensureUserDocument,
   getActiveMood,
+  getLatestMoment,
   getMutualStreak,
   getMyPair,
   getOrCreatePairStats,
@@ -31,7 +33,7 @@ import {
 import { isOnline } from "@/lib/helper";
 import { registerForPushToken } from "@/lib/push";
 import { showError, showSuccess } from "@/lib/toast";
-import { PairStats, QuestionAnswer } from "@/types/type";
+import { MomentsDocument, PairStats, QuestionAnswer } from "@/types/type";
 import { useRouter } from "expo-router";
 import {
   Bookmark,
@@ -50,6 +52,9 @@ const Us = () => {
   const [pair, setPair] = useState<any>(null);
   const [partner, setPartner] = useState<any>(null);
   const [stats, setStats] = useState<PairStats | null>(null);
+  const [latestMoment, setLatestMoment] = useState<MomentsDocument | null>(
+    null,
+  );
 
   const [todayQ, setTodayQ] = useState<any>(null);
   const [questionText, setQuestionText] = useState("");
@@ -78,15 +83,17 @@ const Us = () => {
 
   useEffect(() => {
     const load = async () => {
-      const [meDoc, partnerDoc, pairDoc] = await Promise.all([
+      const [meDoc, partnerDoc, pairDoc, latestMomentDoc] = await Promise.all([
         ensureUserDocument(),
         getPartner(),
         getMyPair(),
+        getLatestMoment(),
       ]);
 
       setMe(meDoc);
       setPartner(partnerDoc);
       setPair(pairDoc);
+      setLatestMoment(latestMomentDoc);
       setMyMood(getActiveMood(meDoc));
       setPartnerMood(getActiveMood(partnerDoc));
 
@@ -300,7 +307,7 @@ const Us = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-card">
+    <SafeAreaView className="flex-1 bg-primary/20">
       <ScrollView
         className="flex-1 px-5"
         contentContainerStyle={{ paddingBottom: 120 }}
@@ -367,7 +374,7 @@ const Us = () => {
           onCategoryChange={setCategory}
         />
 
-        {/* Stats */}
+        {/* Stats: Story so far */}
         <Pressable
           onPress={() => router.push(`/story/${pair.$id}`)}
           className="bg-background rounded-3xl p-6 mt-6 shadow-sm"
@@ -387,34 +394,23 @@ const Us = () => {
             />
             <Stat
               icon={Camera}
-              label="moments"
+              label="images"
               value={stats?.photosCount ?? 0}
             />
             <Stat
               icon={Bookmark}
-              label="collection"
-              value={stats?.savedCount ?? 0}
+              label="memories"
+              value={stats?.momentCount ?? 0}
             />
             <Stat icon={Heart} label="days here" value={daysTogetherHere} />
           </View>
         </Pressable>
 
         {/* Last Memory */}
-        <View className="bg-background rounded-3xl p-5 mt-6 shadow-sm flex-row items-center gap-4">
-          <View className="bg-muted p-4 rounded-xl">
-            <Camera size={18} color="#8a8075" />
-          </View>
-
-          <View className="flex-1">
-            <Text className="text-mutedForeground text-sm">Last memory</Text>
-            <Text className="text-foreground font-medium">
-              “Sunday morning together”
-            </Text>
-            <Text className="text-mutedForeground text-xs mt-1">
-              3 days ago
-            </Text>
-          </View>
-        </View>
+        <LastMemoryCard
+          moment={latestMoment}
+          onPress={() => router.push(`/story/${pair.$id}`)}
+        />
 
         {/* CTA */}
         {/* <ThinkingOfYouButton

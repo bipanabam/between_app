@@ -95,7 +95,7 @@ export interface PairStats extends Models.Document {
   messagesCount: number;
   photosCount: number;
   voiceCount: number;
-  savedCount: number;
+  momentCount: number;
 
   firstMessageAt: datetime;
   lastMessageAt: datetime;

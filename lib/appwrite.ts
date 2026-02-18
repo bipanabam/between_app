@@ -795,21 +795,20 @@ export const getOrCreatePairStats = async (pair: PairDocument) => {
   );
 
   const docs = messages.documents;
-  // let reactionsCount = 0;
-
-  // docs.forEach((m) => {
-  //   if (!m.reactions) return;
-  //   try {
-  //     const parsed = JSON.parse(m.reactions);
-  //     reactionsCount += Object.keys(parsed).length;
-  //   } catch {}
-  // });
 
   const photosCount = docs.filter((m) => m.type === "image").length;
   const voiceCount = docs.filter((m) => m.type === "audio").length;
 
   const firstMessageAt = docs[0]?.$createdAt ?? null;
   const lastMessageAt = docs.at(-1)?.$createdAt ?? null;
+
+  const momentsDoc = await databases.listDocuments<MomentsDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.momentsCollectionId,
+    [Query.equal("pairId", pair.$id), Query.limit(5000)],
+  );
+
+  const momentCount = momentsDoc.documents.length;
 
   return databases.createDocument<PairStats>(
     appwriteConfig.databaseId,
@@ -820,7 +819,7 @@ export const getOrCreatePairStats = async (pair: PairDocument) => {
       messagesCount: docs.length,
       photosCount,
       voiceCount,
-      savedCount: 0,
+      momentCount,
 
       firstMessageAt,
       lastMessageAt,
@@ -1420,7 +1419,44 @@ export const getAllMoments = async (options?: {
   return res.documents;
 };
 
+export const getLatestMoment = async (): Promise<MomentsDocument | null> => {
+  const me = await account.get();
+  const userDoc = await ensureUserDocument();
+  if (!userDoc.pairId) return null;
+
+  const res = await databases.listDocuments<MomentsDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.momentsCollectionId,
+    [
+      Query.equal("pairId", userDoc.pairId),
+      Query.orderDesc("momentDate"),
+      Query.limit(1),
+    ],
+  );
+
+  return res.documents[0] ?? null;
+};
+
 // MOMENTS
+export const incrementMomentCount = async (pairId: string) => {
+  const pair = await databases.getDocument<PairDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairCollectionId,
+    pairId,
+  );
+
+  const stats = await getOrCreatePairStats(pair);
+
+  return databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairStatsCollectionId,
+    stats.$id,
+    {
+      momentCount: stats.momentCount + 1,
+    },
+  );
+};
+
 export const createMoment = async (data: {
   type: MomentsDocument["type"];
   title: string;
@@ -1461,6 +1497,9 @@ export const createMoment = async (data: {
     },
     [Permission.read(Role.users()), Permission.update(Role.user(userId))],
   );
+
+  // increment the pair stats
+  await incrementMomentCount(userDoc.pairId);
 
   return res;
 };
@@ -1606,8 +1645,37 @@ export const editMomentWithMedia = async (
   }
 };
 
+export const decrementMomentCount = async (pairId: string) => {
+  const pair = await databases.getDocument<PairDocument>(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairCollectionId,
+    pairId,
+  );
+
+  const stats = await getOrCreatePairStats(pair);
+
+  return databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairStatsCollectionId,
+    stats.$id,
+    {
+      momentCount: Math.max(0, stats.momentCount - 1), // never negative
+    },
+  );
+};
+
 export const deleteMoment = async (momentId: string) => {
   try {
+    const moment = await databases.getDocument<MomentsDocument>(
+      appwriteConfig.databaseId,
+      appwriteConfig.momentsCollectionId,
+      momentId,
+    );
+
+    if (!moment) throw new Error("Moment not found");
+
+    const pairId = moment.pairId;
+
     // Delete associated reminders first
     const existingReminders = await databases.listDocuments<ReminderDocument>(
       appwriteConfig.databaseId,
@@ -1629,6 +1697,11 @@ export const deleteMoment = async (momentId: string) => {
       appwriteConfig.momentsCollectionId,
       momentId,
     );
+
+    // Decrement stats
+    if (pairId) {
+      await decrementMomentCount(pairId);
+    }
   } catch (e) {
     console.error(e);
   }
