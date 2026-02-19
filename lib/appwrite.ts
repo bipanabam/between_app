@@ -1391,7 +1391,7 @@ export const getAllMoments = async (options?: {
     Query.equal("pairId", pairId),
     // Query.equal("createdBy", userDoc.$id),
     // Query.equal("hasReminder", false),
-    Query.orderAsc("momentDate"),
+    Query.orderDesc("momentDate"),
     Query.limit(100),
   ];
 

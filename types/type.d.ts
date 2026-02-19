@@ -238,7 +238,7 @@ export interface MomentsDocument extends Models.Document {
   hasReminder: boolean;
   reminderConfig: any;
 
-  mediaUrl: string | null;
+  mediaUrl?: string | null;
 
   isPrivate: boolean;
 }

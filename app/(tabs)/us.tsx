@@ -409,7 +409,7 @@ const Us = () => {
         {/* Last Memory */}
         <LastMemoryCard
           moment={latestMoment}
-          onPress={() => router.push(`/story/${pair.$id}`)}
+          onPress={() => router.push("/memories")}
         />
 
         {/* CTA */}

@@ -1,7 +1,7 @@
 import { formatDate } from "@/lib/date";
 import { MomentsDocument } from "@/types/type";
 import { LinearGradient } from "expo-linear-gradient";
-import { Camera } from "lucide-react-native";
+import { Camera, ChevronRight } from "lucide-react-native";
 import { Image, Pressable, Text, View } from "react-native";
 
 const LastMemoryCard = ({
@@ -33,11 +33,14 @@ const LastMemoryCard = ({
       android_ripple={{ color: "rgba(0,0,0,0.08)" }}
       style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
     >
-      <View className="flex-row items-center gap-2 px-5 pt-5">
-        <View className="bg-muted p-2 rounded-xl">
-          <Camera size={16} color="#8a8075" />
+      <View className="flex-row justify-between px-5 pt-5">
+        <View className="flex-row items-center gap-2">
+          <View className="bg-muted p-2 rounded-xl">
+            <Camera size={16} color="#8a8075" />
+          </View>
+          <Text className="text-mutedForeground text-base">Last memory</Text>
         </View>
-        <Text className="text-mutedForeground text-base">Last memory</Text>
+        <ChevronRight size={18} color="#8a8075" />
       </View>
       {hasMedia ? (
         <View className="mt-4">
