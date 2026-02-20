@@ -53,7 +53,7 @@ export interface MessageDocument extends Models.Document {
   senderId: string | { $id: string };
   text?: string | null;
   type: "text" | "image" | "audio";
-  status?: "sent" | "delivered" | "read" | "sending";
+  status?: "sent" | "delivered" | "read" | "sending" | "scheduled";
 
   replyToId?: string | null;
   replyPreview?: string | null;
@@ -65,6 +65,18 @@ export interface MessageDocument extends Models.Document {
   clientId?: string | null;
 
   mediaUrl?: string | null; //size:255
+
+  scheduled?: boolean;
+  scheduledAt?: string;
+}
+
+export interface ScheduledMessages extends Models.Document {
+  conversationId: string;
+  senderId: string | { $id: string };
+  text: string;
+  scheduledAt: string;
+  status: "pending" | "sent";
+  sentAt?: string | null;
 }
 
 export type ChatMessage = Partial<MessageDocument> & {

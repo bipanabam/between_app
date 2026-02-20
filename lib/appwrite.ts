@@ -9,6 +9,7 @@ import {
   PeriodCycleDocument,
   QuestionAnswer,
   ReminderDocument,
+  ScheduledMessages,
   ThinkingOfYouPayload,
   UpdateReminderInput,
   UserDocument,
@@ -45,8 +46,7 @@ export const appwriteConfig = {
   remindersCollectionId: "reminders",
   periodCollectionId: "period_cycle",
   momentsCollectionId: "moments",
-  THINKING_OF_YOU_FUNCTION_ID: "6985b3fa0028092fcb45",
-  MESSAGE_NOTIFICATION_FUNCTION_ID: "69886ec900334c02a80c",
+  scheduledCollectionId: "scheduled_messages",
   REMINDER_DISPATCHER_FUNCTION_ID: "",
   PUSH_DISPATCH_FUNCTION_ID: "6985b3fa0028092fcb45",
   storageBucketId: "6989c1f4001e85df4b05",
@@ -435,7 +435,8 @@ export const getPartner = async (): Promise<UserDocument | null> => {
   return partner;
 };
 
-// messages
+// MESSAGES //
+
 export const getMessages = async (pairId: string) => {
   try {
     const res = await databases.listDocuments<MessageDocument>(
@@ -495,6 +496,93 @@ export const sendMessagePush = async (payload: {
 
   if (res.status !== "completed") {
     throw new Error("Push function failed");
+  }
+};
+
+// SCHEDULING MESSAGES
+export const scheduleMessage = async ({
+  text,
+  scheduledAt,
+  conversationId,
+  senderId,
+}: {
+  text: string;
+  scheduledAt: string;
+  conversationId: string;
+  senderId: string;
+}): Promise<ScheduledMessages> => {
+  try {
+    return databases.createDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.scheduledCollectionId,
+      ID.unique(),
+      {
+        text,
+        conversationId,
+        senderId,
+        scheduledAt,
+        status: "pending",
+      },
+    );
+  } catch (error) {
+    throw new Error(`Error: ${error}`);
+  }
+};
+
+export const getScheduledMessages = async (
+  pairId: string,
+): Promise<ScheduledMessages[]> => {
+  const accountInfo = await account.get();
+  const senderId = accountInfo.$id;
+
+  try {
+    const res = await databases.listDocuments<ScheduledMessages>(
+      appwriteConfig.databaseId,
+      appwriteConfig.scheduledCollectionId,
+      [
+        Query.equal("conversationId", pairId),
+        Query.equal("senderId", senderId),
+        Query.equal("status", "pending"),
+        Query.orderAsc("scheduledAt"),
+        Query.limit(100),
+      ],
+    );
+
+    return res.documents;
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const updateScheduledMessage = async (
+  scheduledId: string,
+  text: string,
+  scheduledAt: string,
+): Promise<ScheduledMessages> => {
+  try {
+    return await databases.updateDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.scheduledCollectionId,
+      scheduledId,
+      {
+        text,
+        scheduledAt,
+      },
+    );
+  } catch (error) {
+    throw new Error(`Update failed: ${error}`);
+  }
+};
+
+export const deleteScheduledMessage = async (scheduledId: string) => {
+  try {
+    await databases.deleteDocument(
+      appwriteConfig.databaseId,
+      appwriteConfig.scheduledCollectionId,
+      scheduledId,
+    );
+  } catch (error) {
+    throw new Error(`Delete failed: ${error}`);
   }
 };
 
@@ -707,31 +795,6 @@ export const markMessagesRead = async (
     ),
   );
 };
-
-// export const markMessagesRead = async (
-//   msgs: MessageDocument[],
-//   myId: string,
-// ) => {
-//   const unread = msgs.filter((m) => m.senderId !== myId && !m.readAt);
-
-//   if (unread.length === 0) return;
-
-//   const now = new Date().toISOString();
-
-//   await Promise.all(
-//     unread.map((m) =>
-//       databases.updateDocument(
-//         appwriteConfig.databaseId,
-//         appwriteConfig.messageCollectionId,
-//         m.$id,
-//         {
-//           readAt: now,
-//           status: "read",
-//         },
-//       ),
-//     ),
-//   );
-// };
 
 export const markDelivered = async (messageId: string) => {
   try {

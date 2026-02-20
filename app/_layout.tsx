@@ -35,6 +35,7 @@ function RootLayoutNav() {
     const inTabs = segments[0] === "(tabs)";
     const inStory = segments[0] === "story";
     const inMemories = segments[0] == "memories";
+    const inScheduledMessages = segments[0] == "schedule";
 
     switch (status) {
       case "unauthenticated":
@@ -63,7 +64,7 @@ function RootLayoutNav() {
         break;
 
       case "ready":
-        if (!inTabs && !inStory && !inMemories) {
+        if (!inTabs && !inStory && !inMemories && !inScheduledMessages) {
           router.replace("/(tabs)/us");
         }
         break;

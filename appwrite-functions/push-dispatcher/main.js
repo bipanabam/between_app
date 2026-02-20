@@ -98,6 +98,46 @@ export default async ({ req, res, error, log }) => {
       return res.json({ ok: true });
     }
 
+    // SCHEDULED MESSAGE PUSH
+    if (payload.type === "scheduled_message") {
+      const { pairId, senderId, text } = payload;
+
+      const pair = await db.getDocument(DB, "pair", pairId);
+
+      const partnerId =
+        pair.partnerOne.$id === senderId
+          ? pair.partnerTwo.$id
+          : pair.partnerOne.$id;
+
+      const partner = await db.getDocument(DB, "user", partnerId);
+
+      if (!partner.pushToken) {
+        return res.json({ ok: true, skipped: "no token" });
+      }
+
+      const unread = await db.listDocuments(DB, "messages", [
+        Query.equal("conversationId", pairId),
+        Query.equal("status", "sent"),
+        Query.equal("senderId", senderId),
+      ]);
+
+      let body = text?.slice(0, 120) ?? "New message";
+
+      if (unread.total > 1) {
+        body = `💬 ${unread.total} new messages`;
+      }
+
+      await sendExpoPush(
+        partner.pushToken,
+        "💌 A message arrived",
+        body,
+        { pairId },
+        unread.total,
+      );
+
+      return res.json({ ok: true });
+    }
+
     // THINKING OF YOU
     if (payload.type === "thinking") {
       const { pairId, fromUserId, toUserId, fromName } = payload;

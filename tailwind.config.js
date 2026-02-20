@@ -19,9 +19,10 @@ module.exports = {
         destructive: "#c27070",
         destructiveForeground: "#fbfaf9",
         border: "#ded9d3",
+        inputColor: "#EDE7E6",
 
         partnerOne: "#cfafb5",
-        partnerTwo: "#a3b8c2"
+        partnerTwo: "#a3b8c2",
       },
     },
   },

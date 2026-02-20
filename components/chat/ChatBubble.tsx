@@ -171,7 +171,9 @@ const ChatBubble = memo(
                 mine ? "bg-[#DDE3E6]" : "bg-[#E9DFDB]"
               } ${isShowingReactions ? "opacity-80" : ""} 
                ${isImage ? "p-1" : "px-5 py-4"}`}
-              style={{ opacity: isSending ? 0.6 : 1 }}
+              style={{
+                opacity: isSending ? 0.6 : 1,
+              }}
             >
               {replyPreview && (
                 <View className="mb-2 border-l-2 border-primary/40 pl-3 bg-black/5 rounded-md py-1">

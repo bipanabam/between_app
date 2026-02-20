@@ -1,22 +1,28 @@
 import ChatBubble from "@/components/chat/ChatBubble";
 import ChatHeader from "@/components/chat/ChatHeader";
 import ChatInput from "@/components/chat/ChatInput";
+import ScheduleMessageSheet from "@/components/chat/ScheduleMessageSheet";
 import HeartLoader from "@/components/HearLoader";
 import {
+  addReaction,
   appwriteConfig,
   client,
   getMessages,
   getPartner,
+  getScheduledMessages,
   getUser,
   markDelivered,
   markMessagesRead,
+  scheduleMessage,
 } from "@/lib/appwrite";
 import { isOnline } from "@/lib/helper";
-import { MessageDocument } from "@/types/type";
+import { MessageDocument, ScheduledMessages } from "@/types/type";
 import { formatChatDate } from "@/utility/formatChatDate";
 import { LegendList } from "@legendapp/list";
 import dayjs from "dayjs";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
+import { CalendarIcon, TimerIcon } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -34,6 +40,10 @@ const Chat = () => {
   const [user, setUser] = useState<any>(null);
 
   const [messages, setMessages] = useState<MessageDocument[]>([]);
+  const [scheduledMessages, setScheduledMessages] = useState<
+    ScheduledMessages[]
+  >([]);
+
   const [replyingTo, setReplyingTo] = useState<MessageDocument | null>(null);
   const [isloading, setIsLoading] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -43,103 +53,13 @@ const Chat = () => {
     mine: boolean;
   } | null>(null);
 
+  const [showMenu, setShowMenu] = useState(false);
+
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+
   const partnerOnline = isOnline(partner?.lastActiveAt);
 
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-
-  const getSenderId = (m: MessageDocument) => {
-    if (!m?.senderId) return undefined;
-
-    if (typeof m.senderId === "string") return m.senderId;
-
-    if (typeof m.senderId === "object" && "$id" in m.senderId) {
-      return m.senderId.$id;
-    }
-
-    return undefined;
-  };
-  const lastMineId = [...messages]
-    .reverse()
-    .find((m) => getSenderId(m) === user.$id)?.$id;
-
-  // Compute which messages should show ticks
-  const lastUserMsgId = React.useMemo(() => {
-    if (!user) return null;
-
-    const lastUserIndex = messages.map(getSenderId).lastIndexOf(user.$id);
-    if (lastUserIndex === -1) return null;
-
-    const nextMsg = messages[lastUserIndex + 1];
-    if (!nextMsg) {
-      return messages[lastUserIndex].$id;
-    }
-
-    return null;
-  }, [messages, user]);
-
-  useEffect(() => {
-    if (activeReactionMsg) {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 8,
-        tension: 100,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(scaleAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [activeReactionMsg]);
-
-  const handleReact = async (emoji: string) => {
-    if (!activeReactionMsg || !user) return;
-
-    const targetId = activeReactionMsg.message.$id;
-    setActiveReactionMsg(null);
-
-    // Optimistic Update: Update UI immediately
-    setMessages((prev) =>
-      prev.map((m) => {
-        if (m.$id === targetId) {
-          let currentReactions: Record<string, string> = {};
-          // Parse current reactions safely
-          try {
-            currentReactions = m.reactions ? JSON.parse(m.reactions) : {};
-          } catch (e) {
-            currentReactions = {};
-          }
-          // toggle logic if same emoji exists
-          if (currentReactions[user.$id] === emoji) {
-            setIsRemoving(true);
-            delete currentReactions[user.$id];
-          } else {
-            currentReactions[user.$id] = emoji;
-          }
-          // Return updated message with stringified reactions
-          return { ...m, reactions: JSON.stringify(currentReactions) };
-        }
-        return m;
-      }),
-    );
-
-    try {
-      const { addReaction } = await import("@/lib/appwrite");
-      if (isRemoving) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setIsRemoving(false);
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-      await addReaction(activeReactionMsg.message, user.$id, emoji);
-    } catch (error) {
-      // Rollback logic (refetch messages)
-      console.error("Failed to react", error);
-    }
-  };
-
+  // Fetch user & partner
   useEffect(() => {
     const handleFirstLoad = async () => {
       setIsLoading(true);
@@ -152,6 +72,8 @@ const Chat = () => {
         if (partnerDoc?.pairId) {
           const messageDocs = await getMessages(partnerDoc.pairId);
           setMessages(messageDocs.filter((m) => m.senderId));
+          const scheduledDocs = await getScheduledMessages(partnerDoc.pairId);
+          setScheduledMessages(scheduledDocs);
         }
       } catch (err) {
         console.log(err);
@@ -235,6 +157,114 @@ const Chat = () => {
     return () => clearTimeout(timer);
   }, [partner?.pairId, user]);
 
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+
+  const getSenderId = (m: MessageDocument) => {
+    if (!m?.senderId) return undefined;
+
+    if (typeof m.senderId === "string") return m.senderId;
+
+    if (typeof m.senderId === "object" && "$id" in m.senderId) {
+      return m.senderId.$id;
+    }
+
+    return undefined;
+  };
+  const lastMineId = [...messages]
+    .reverse()
+    .find((m) => getSenderId(m) === user.$id)?.$id;
+
+  // Compute which messages should show ticks
+  const lastUserMsgId = React.useMemo(() => {
+    if (!user) return null;
+
+    const lastUserIndex = messages.map(getSenderId).lastIndexOf(user.$id);
+    if (lastUserIndex === -1) return null;
+
+    const nextMsg = messages[lastUserIndex + 1];
+    if (!nextMsg) {
+      return messages[lastUserIndex].$id;
+    }
+
+    return null;
+  }, [messages, user]);
+
+  useEffect(() => {
+    if (activeReactionMsg) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 100,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(scaleAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [activeReactionMsg]);
+
+  const handleReact = async (emoji: string) => {
+    if (!activeReactionMsg || !user) return;
+
+    const targetId = activeReactionMsg.message.$id;
+    setActiveReactionMsg(null);
+
+    // Optimistic Update: Update UI immediately
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.$id === targetId) {
+          let currentReactions: Record<string, string> = {};
+          // Parse current reactions safely
+          try {
+            currentReactions = m.reactions ? JSON.parse(m.reactions) : {};
+          } catch (e) {
+            currentReactions = {};
+          }
+          // toggle logic if same emoji exists
+          if (currentReactions[user.$id] === emoji) {
+            setIsRemoving(true);
+            delete currentReactions[user.$id];
+          } else {
+            currentReactions[user.$id] = emoji;
+          }
+          // Return updated message with stringified reactions
+          return { ...m, reactions: JSON.stringify(currentReactions) };
+        }
+        return m;
+      }),
+    );
+
+    try {
+      if (isRemoving) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setIsRemoving(false);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      await addReaction(activeReactionMsg.message, user.$id, emoji);
+    } catch (error) {
+      // Rollback logic (refetch messages)
+      console.error("Failed to react", error);
+    }
+  };
+
+  const handleScheduleCreate = async (text: string, scheduledAt: string) => {
+    if (!partner?.pairId || !user) return;
+    const newSchedule = await scheduleMessage({
+      text,
+      scheduledAt,
+      conversationId: partner.pairId,
+      senderId: user.$id,
+    });
+    setScheduledMessages((prev) =>
+      prev.map((m) => (m.$id === newSchedule.$id ? newSchedule : m)),
+    );
+    setShowScheduleModal(false);
+  };
+
   if (isloading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -254,13 +284,77 @@ const Chat = () => {
           name={partner?.nickname}
           avatar={partner?.avatar}
           color="#E57399"
-          status={partnerOnline ? "Here with you" : ""}
+          status={partnerOnline ? "Here with you" : "Recently offline"}
           online={partnerOnline}
+          scheduledCount={scheduledMessages.length}
+          onOpenMenu={() => setShowMenu(true)}
         />
+
+        {showMenu && (
+          <>
+            <Pressable
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 40,
+              }}
+              onPress={() => setShowMenu(false)}
+            />
+
+            {/* Menu */}
+            <View
+              style={{
+                position: "absolute",
+                top: 60,
+                right: 16,
+                zIndex: 50,
+              }}
+              className="w-48 rounded-2xl bg-white shadow-lg overflow-hidden"
+            >
+              <Pressable
+                onPress={() => {
+                  setShowScheduleModal(true);
+                  setShowMenu(false);
+                }}
+                className="flex-row items-center gap-2 px-4 py-3"
+              >
+                <TimerIcon size={16} color="#bc8f97" />
+                <Text className="text-sm">Schedule a message</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  // redirect to scheduled messages screen
+                  setShowMenu(false);
+                  router.push(`/schedule/${partner.pairId}/`);
+                }}
+                className="flex-row items-center gap-2 px-4 py-3"
+              >
+                <CalendarIcon size={16} color="#bc8f97" />
+                <Text className="text-sm">View scheduled</Text>
+              </Pressable>
+
+              <View className="h-px bg-gray-200" />
+
+              <Pressable
+                onPress={() => {
+                  setMessages([]);
+                  setShowMenu(false);
+                }}
+                className="px-4 py-3"
+              >
+                <Text className="text-sm text-red-500">Clear chat</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
 
         {/* Messages */}
         <LegendList
           data={messages}
+          style={{ backgroundColor: "rgb(233 230 226 / 0.7)" }}
           renderItem={({ item, index }) => {
             const sender = getSenderId(item);
             if (!sender || !user) return null;
@@ -370,6 +464,11 @@ const Chat = () => {
           </>
         )}
       </KeyboardAvoidingView>
+      <ScheduleMessageSheet
+        visible={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        onSchedule={handleScheduleCreate}
+      />
     </SafeAreaView>
   );
 };
