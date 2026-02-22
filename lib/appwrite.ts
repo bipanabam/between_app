@@ -435,6 +435,35 @@ export const getPartner = async (): Promise<UserDocument | null> => {
   return partner;
 };
 
+export const proposeRelationshipDate = async (
+  pairId: string,
+  date: Date,
+  userId: string,
+) => {
+  return databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairCollectionId,
+    pairId,
+    {
+      relationshipStartDatePending: date,
+      relationshipStartDateProposedBy: userId,
+    },
+  );
+};
+
+export const confirmRelationshipDate = async (pair: PairDocument) => {
+  return databases.updateDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.pairCollectionId,
+    pair.$id,
+    {
+      relationshipStartDate: pair.relationshipStartDatePending,
+      relationshipStartDatePending: null,
+      relationshipStartDateConfirmed: true,
+    },
+  );
+};
+
 // MESSAGES //
 
 export const getMessages = async (pairId: string) => {
@@ -808,35 +837,6 @@ export const markDelivered = async (messageId: string) => {
       },
     );
   } catch {}
-};
-
-export const proposeRelationshipDate = async (
-  pairId: string,
-  date: Date,
-  userId: string,
-) => {
-  return databases.updateDocument(
-    appwriteConfig.databaseId,
-    appwriteConfig.pairCollectionId,
-    pairId,
-    {
-      relationshipStartDatePending: date,
-      relationshipStartDateProposedBy: userId,
-    },
-  );
-};
-
-export const confirmRelationshipDate = async (pair: PairDocument) => {
-  return databases.updateDocument(
-    appwriteConfig.databaseId,
-    appwriteConfig.pairCollectionId,
-    pair.$id,
-    {
-      relationshipStartDate: pair.relationshipStartDatePending,
-      relationshipStartDatePending: null,
-      relationshipStartDateConfirmed: true,
-    },
-  );
 };
 
 export const getOrCreatePairStats = async (pair: PairDocument) => {
