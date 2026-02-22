@@ -1,4 +1,4 @@
-import { Client, Databases, Functions, Query, ID } from "node-appwrite";
+import { Client, Databases, Functions, ID, Query } from "node-appwrite";
 
 export default async ({ res, log }) => {
   const client = new Client()
@@ -42,45 +42,38 @@ export default async ({ res, log }) => {
     ]);
 
     for (const s of scheduled.documents) {
-      // Create real message
-      const msg = await db.createDocument(
-        DB,
-        "messages",
-        ID.unique(),
-        {
+      try {
+        // Create real message
+        const msg = await db.createDocument(DB, "messages", ID.unique(), {
           text: s.text,
           conversationId: s.conversationId,
           senderId: s.senderId,
           status: "sent",
           scheduled: true,
-        },
-      );
+        });
 
-      // Trigger push dispatch
-      await fn.createExecution(
-        process.env.PUSH_DISPATCH_FUNCTION_ID,
-        JSON.stringify({
-          type: "scheduled_message",
-          pairId: s.conversationId,
-          senderId: s.senderId,
-          text: s.text,
-        }),
-      );
+        // Trigger push dispatch
+        await fn.createExecution(
+          process.env.PUSH_DISPATCH_FUNCTION_ID,
+          JSON.stringify({
+            type: "scheduled_message",
+            pairId: s.conversationId,
+            senderId: s.senderId,
+            text: s.text,
+          }),
+        );
 
-      // Mark scheduled doc as sent
-      await db.updateDocument(
-        DB,
-        "scheduled_messages",
-        s.$id,
-        {
+        // Mark scheduled doc as sent
+        await db.updateDocument(DB, "scheduled_messages", s.$id, {
           status: "sent",
           sentAt: now,
-        },
-      );
+        });
 
-      processed++;
+        processed++;
+      } catch (err) {
+        log(`Failed processing ${s.$id}: ${err.message}`);
+      }
     }
-
     return res.json({ ok: true, processed });
   } catch (e) {
     log(e.message);

@@ -10,7 +10,17 @@ type Props = {
 
 const LoveRitualPanel = ({ onSend, isSending, sentToday, streak }: Props) => {
   return (
-    <View className="bg-background rounded-2xl p-4 mt-4 shadow-sm">
+    <View
+      className="bg-white rounded-2xl p-4 mt-4 shadow-sm"
+      style={{
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.3)",
+        shadowColor: "#000",
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      }}
+    >
       <ThinkingOfYouButton onPress={onSend} isSending={isSending} />
 
       <View className="flex-row justify-center gap-4 mt-4">

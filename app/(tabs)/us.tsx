@@ -34,6 +34,7 @@ import { isOnline } from "@/lib/helper";
 import { registerForPushToken } from "@/lib/push";
 import { showError, showSuccess } from "@/lib/toast";
 import { MomentsDocument, PairStats, QuestionAnswer } from "@/types/type";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import {
   Bookmark,
@@ -196,7 +197,8 @@ const Us = () => {
 
     setTodayQ(qDoc);
     setQuestionText(getQuestionText(qDoc.questionId));
-    setPartnerAnswer(undefined);
+    setMyAnswer(undefined);
+    // setPartnerAnswer(undefined);
   };
 
   const setCategory = async (category: QuestionCategory) => {
@@ -215,6 +217,7 @@ const Us = () => {
   // handle thinking of you
   const handleThinkingOfYou = async () => {
     if (!partner || !me || !pair || isSendingLove) return;
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
       setIsSendingLove(true);
@@ -240,6 +243,7 @@ const Us = () => {
         text1: "💞 Little love is Sent",
         text2: `${partner.nickname} will feel it soon`,
       });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       Toast.show({
         type: "error",
@@ -377,7 +381,15 @@ const Us = () => {
         {/* Stats: Story so far */}
         <Pressable
           onPress={() => router.push(`/story/${pair.$id}`)}
-          className="bg-background rounded-3xl p-6 mt-6 shadow-sm"
+          className="bg-white rounded-3xl p-6 mt-6 shadow-sm"
+          style={{
+            borderWidth: 1,
+            borderColor: "rgba(255,255,255,0.3)",
+            shadowColor: "#000",
+            shadowOpacity: 0.06,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 6 },
+          }}
         >
           <View className="flex-row items-center justify-between  mb-4">
             <Text className="text-mutedForeground">
@@ -462,7 +474,7 @@ const Us = () => {
 const Stat = ({ icon: Icon, label, value }: any) => {
   return (
     <View className="items-center gap-2">
-      <View className="bg-muted p-3 rounded-xl">
+      <View className="bg-primary/20 p-3 rounded-xl">
         <Icon size={18} color="#8a8075" />
       </View>
       {/* <Text className="text-foreground font-semibold">{value}</Text> */}
