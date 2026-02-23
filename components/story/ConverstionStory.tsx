@@ -18,21 +18,23 @@ const ConversationStory = ({ stats }: { stats: PairStats }) => {
   return (
     <Animated.View
       style={{ opacity: fade }}
-      className="bg-card rounded-3xl p-6 shadow-md mb-5"
+      className="bg-background rounded-3xl p-6 shadow-md border border-border"
     >
-      <Text className="text-xs text-mutedForeground mb-2">
-        Chapter — Conversations
+      <Text className="text-[11px] uppercase tracking-[2px] text-mutedForeground/60 mb-3">
+        Chapter One: Everything starts with a text
       </Text>
 
-      <Text className="text-lg font-semibold">
-        You kept the connection alive 💬
+      <Text className="text-xl font-semibold text-foreground leading-snug">
+        You kept the connection alive
       </Text>
 
-      <Text className="text-3xl font-bold text-primary mt-2">
+      <Text className="text-3xl font-bold text-primary mt-5 tracking-tight">
         {stats.messagesCount}
       </Text>
 
-      <Text className="text-mutedForeground mt-1">messages shared here</Text>
+      <Text className="text-mutedForeground italic mt-1">
+        messages shared here
+      </Text>
     </Animated.View>
   );
 };

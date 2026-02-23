@@ -45,14 +45,18 @@ const RelationshipClockCounter = ({ pair }: { pair: PairDocument }) => {
   if (!startMs) return null;
 
   return (
-    <View className="items-center my-7">
-      <Text className="text-xs text-mutedForeground mb-2">
-        Growing side by side
-      </Text>
+    <View className="items-center">
+      <View className="items-center my-5">
+        <Text className="text-xs uppercase tracking-widest text-mutedForeground">
+          Time Together
+        </Text>
 
-      <Text className="text-5xl font-bold text-primary">{parts.days}</Text>
+        <Text className="text-6xl font-light text-primary mt-4">
+          {parts.days}
+        </Text>
 
-      <Text className="text-mutedForeground mb-4">days shared</Text>
+        <Text className="text-mutedForeground mt-3">days and counting</Text>
+      </View>
 
       <View className="flex-row gap-6">
         <TimeBox label="hrs" value={parts.hours} />
@@ -67,8 +71,8 @@ const RelationshipClockCounter = ({ pair }: { pair: PairDocument }) => {
 };
 
 const TimeBox = ({ value, label }: any) => (
-  <View className="items-center bg-card px-4 py-3 rounded-xl min-w-[64px]">
-    <Text className="text-lg font-semibold">
+  <View className="items-center bg-muted px-4 py-3 rounded-xl min-w-[64px]">
+    <Text className="text-lg font-semibold text-primary">
       {String(value).padStart(2, "0")}
     </Text>
     <Text className="text-xs text-mutedForeground mt-1">{label}</Text>

@@ -23,25 +23,21 @@ const GrowthSentence = ({ stats }: { stats: PairStats }) => {
   }
 
   return (
-    <View className="bg-card rounded-3xl p-6 mt-6 shadow-md border border-border">
-      {/* Header */}
+    <View className="bg-background rounded-3xl p-6 shadow-md border border-border mb-4">
       <View className="flex-row items-center gap-3 mb-3">
         <View className="bg-primary/15 p-2 rounded-xl">
           <Sparkles size={16} color="#bc8f97" />
         </View>
-
-        <Text className="text-xs text-mutedForeground font-medium">
-          What this says about you two
+        <Text className="text-[11px] uppercase tracking-[2px] text-mutedForeground/60 mb-4">
+          Final Reflection
         </Text>
       </View>
 
-      {/* Main sentence */}
       <Text className="text-xl font-semibold leading-relaxed text-foreground">
         {sentence}
       </Text>
 
-      {/* Sub line */}
-      <Text className="text-mutedForeground mt-2 leading-5">{sub}</Text>
+      <Text className="text-mutedForeground mt-4 leading-6">{sub}</Text>
     </View>
   );
 };

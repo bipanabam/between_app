@@ -29,13 +29,20 @@ const LastMemoryCard = ({
   return (
     <Pressable
       onPress={onPress}
-      className="mt-6 rounded-3xl bg-background overflow-hidden shadow-md"
+      className="mt-6 rounded-3xl bg-white overflow-hidden shadow-md"
       android_ripple={{ color: "rgba(0,0,0,0.08)" }}
-      style={({ pressed }) => [{ opacity: pressed ? 0.95 : 1 }]}
+      style={{
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.3)",
+        shadowColor: "#000",
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      }}
     >
       <View className="flex-row justify-between px-5 pt-5">
         <View className="flex-row items-center gap-2">
-          <View className="bg-muted p-2 rounded-xl">
+          <View className="bg-primary/20 p-2 rounded-xl">
             <Camera size={16} color="#8a8075" />
           </View>
           <Text className="text-mutedForeground text-base">Last memory</Text>

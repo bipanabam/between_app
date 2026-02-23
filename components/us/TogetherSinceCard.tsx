@@ -9,6 +9,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import StatusBadge from "../StatusBadge";
 import TogetherSinceSheet from "./TogetherSinceSheet";
 
 const TogetherSinceCard = ({ pair, meId, onPropose, onConfirm }: any) => {
@@ -100,20 +101,22 @@ const TogetherSinceCard = ({ pair, meId, onPropose, onConfirm }: any) => {
                 </Text>
               </View>
             </View>
-            {pending && (
-              <Text className="text-amber-500 text-xs mt-1">
-                Waiting for your partner to confirm
-              </Text>
-            )}
-            {confirmed && (
-              <View className="flex-col items-center">
-                <Text className="text-primary font-bold text-xl">
-                  {daysSince(pair.relationshipStartDate)}
+            <View style={{ alignItems: "flex-end" }}>
+              {/* {pending && (
+                <Text className="text-amber-500 text-xs mt-1">
+                  Waiting for your partner to confirm
                 </Text>
-                <Text className="text-mutedForeground text-sm">days</Text>
-              </View>
-            )}
-            {/* {pending && <StatusBadge label="Pending" />} */}
+              )} */}
+              {pending && <StatusBadge label="Pending" />}
+              {confirmed && (
+                <View className="flex-col items-center">
+                  <Text className="text-primary font-bold text-xl">
+                    {daysSince(pair.relationshipStartDate)}
+                  </Text>
+                  <Text className="text-mutedForeground text-sm">days</Text>
+                </View>
+              )}
+            </View>
           </LinearGradient>
         </Pressable>
 

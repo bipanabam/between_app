@@ -2,9 +2,9 @@ import PulseHeart from "@/components/PulseHeart";
 import StatusBadge from "@/components/StatusBadge";
 import { daysSince, formatDate } from "@/lib/date";
 import {
-    BottomSheetBackdrop,
-    BottomSheetModal,
-    BottomSheetView,
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import dayjs from "dayjs";
@@ -13,10 +13,10 @@ import { CalendarIcon } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import Animated, {
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withTiming,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
 } from "react-native-reanimated";
 
 const TogetherSinceSheet = ({
@@ -46,7 +46,7 @@ const TogetherSinceSheet = ({
   };
 
   const snapPoints = useMemo(
-    () => (showPicker ? ["45%"] : proposedByMe ? ["32%"] : ["35%"]),
+    () => (showPicker ? ["50%"] : proposedByMe ? ["35%"] : ["38%"]),
     [showPicker, proposedByMe],
   );
 
@@ -98,33 +98,6 @@ const TogetherSinceSheet = ({
     } finally {
       setSaving(false);
     }
-  };
-
-  // Initializing the calender
-  const calendarInitialDate = useMemo(() => {
-    if (pair.relationshipStartDatePending) {
-      return new Date(pair.relationshipStartDatePending);
-    }
-    return date;
-  }, [pair.relationshipStartDatePending, date]);
-  const calendarInitialKey = calendarInitialDate.toISOString().split("T")[0];
-
-  const selectedKey = date.toISOString().split("T")[0];
-  const pendingKey = pair.relationshipStartDatePending
-    ? new Date(pair.relationshipStartDatePending).toISOString().split("T")[0]
-    : null;
-
-  const markedDates = {
-    ...(pendingKey && {
-      [pendingKey]: {
-        marked: true,
-        dotColor: "#bc8f97",
-      },
-    }),
-    [selectedKey]: {
-      selected: true,
-      selectedColor: "#8a8075",
-    },
   };
 
   return (
@@ -187,7 +160,7 @@ const TogetherSinceSheet = ({
           </View>
         )}
 
-        {!confirmed && !pending && (
+        {!confirmed && !pending && !showPicker && (
           <>
             <View className="items-center mb-6">
               <PulseHeart active />
@@ -349,6 +322,11 @@ const TogetherSinceSheet = ({
                 onPress={() => {
                   Haptics.selectionAsync();
                   setShowPicker(false);
+                  setDate(
+                    pair.relationshipStartDatePending
+                      ? new Date(pair.relationshipStartDatePending)
+                      : new Date(),
+                  );
                 }}
                 className="flex-1"
                 style={({ pressed }) => [

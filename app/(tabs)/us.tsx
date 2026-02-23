@@ -331,7 +331,9 @@ const Us = () => {
             color="#E57399"
             online={partnerOnline}
             lastActiveAt={partner.lastActiveAt}
-            onPressAvatar={() => setShowMoodInsightSheet(true)}
+            onPressAvatar={() =>
+              partnerMood ? setShowMoodInsightSheet(true) : null
+            }
           />
 
           <PartnerCard
@@ -381,7 +383,7 @@ const Us = () => {
         {/* Stats: Story so far */}
         <Pressable
           onPress={() => router.push(`/story/${pair.$id}`)}
-          className="bg-white rounded-3xl p-6 mt-6 shadow-sm"
+          className="bg-white rounded-3xl p-6 mt-6 shadow-md"
           style={{
             borderWidth: 1,
             borderColor: "rgba(255,255,255,0.3)",
@@ -424,14 +426,9 @@ const Us = () => {
           onPress={() => router.push("/memories")}
         />
 
-        {/* CTA */}
-        {/* <ThinkingOfYouButton
-          onPress={handleThinkingOfYou}
-          isSending={isSendingLove}
-        /> */}
-
         {/* Footer */}
         <RotatingMicrocopy lines={privacyMicrocopy} />
+
         <MoodBottomSheet
           isOpen={showMoodSheet}
           onSelect={async (mood) => {
@@ -477,7 +474,6 @@ const Stat = ({ icon: Icon, label, value }: any) => {
       <View className="bg-primary/20 p-3 rounded-xl">
         <Icon size={18} color="#8a8075" />
       </View>
-      {/* <Text className="text-foreground font-semibold">{value}</Text> */}
       <AnimatedCounter
         key={value}
         value={value}

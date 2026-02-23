@@ -1,11 +1,7 @@
 import HeartLoader from "@/components/HearLoader";
-import ConversationStory from "@/components/story/ConverstionStory";
-import GrowthSentence from "@/components/story/GrowthSentence";
-import MemoryStory from "@/components/story/MemoryStory";
-import RelationshipClockCounter from "@/components/story/RelationshipClockCounter";
-import StoryHero from "@/components/story/StoryHero";
-import StoryReveal from "@/components/story/StoryReveal";
-import VoiceStory from "@/components/story/VoiceStory";
+import StoryChapters from "@/components/story/StoryChapters";
+import StoryReflection from "@/components/story/StoryReflection";
+import StoryTimeline from "@/components/story/StoryTimeline";
 import {
   ensureUserDocument,
   getMyPair,
@@ -13,8 +9,17 @@ import {
   getPartner,
 } from "@/lib/appwrite";
 import { PairStats } from "@/types/type";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { RefreshControl, ScrollView, Text, View } from "react-native";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const StoryDivider = () => (
@@ -64,62 +69,34 @@ const PairStoryScreen = () => {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <ScrollView
-        className="flex-1 px-5"
-        contentContainerStyle={{ paddingBottom: 140 }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={load} />
-        }
-      >
-        <Text className="text-center text-xs text-mutedForeground/50 mt-2">
-          This is the story you’ve been writing together
-        </Text>
+    <LinearGradient
+      colors={["#FDFBFF", "#F8F2F4", "#F3E8EE"]}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView className="flex-1">
+        <ScrollView
+          className="flex-1 px-5"
+          contentContainerStyle={{ paddingBottom: 120 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={load} />
+          }
+        >
+          <View className="flex-row items-start px-4 pt-3">
+            <Pressable onPress={() => router.back()}>
+              <ArrowLeft size={22} color="#bc8f97" />
+            </Pressable>
+          </View>
+          <StoryTimeline pair={pair} />
 
-        <StoryReveal delay={0}>
-          <StoryHero pair={pair} partner={partner} me={me} />
-        </StoryReveal>
-        <View className="h-6" />
-
-        {/* Intro line */}
-        <Text className="text-center text-mutedForeground/60 mt-5 mb-3">
-          Your story so far ✨
-        </Text>
-        <StoryReveal delay={120}>
-          <RelationshipClockCounter pair={pair} />
-        </StoryReveal>
-
-        <StoryDivider />
-
-        <Text className="text-xs text-mutedForeground/40 mt-8 mb-3">
-          Your connection
-        </Text>
-
-        <StoryReveal delay={240}>
-          <ConversationStory stats={stats} />
-        </StoryReveal>
-
-        <Text className="text-center text-mutedForeground/50 italic my-4">
-          From words to moments
-        </Text>
-
-        <MemoryStory stats={stats} />
-
-        <Text className="text-center text-mutedForeground/50 italic my-4">
-          From moments to voices
-        </Text>
-
-        <VoiceStory stats={stats} />
-        <StoryDivider />
-        <GrowthSentence stats={stats} />
-        <View className="items-center mt-12 mb-16">
-          <Text className="text-mutedForeground/60 italic text-center">
-            Still unfolding — one moment at a time ✨
+          <Text className="text-center text-xs text-mutedForeground/50 mt-6">
+            This is the story you’ve been writing together
           </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          <StoryChapters pair={pair} partner={partner} me={me} stats={stats} />
+          <StoryReflection />
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 

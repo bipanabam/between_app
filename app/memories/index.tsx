@@ -2,8 +2,10 @@ import MemoryCard from "@/components/memories/MemoryCard";
 import { getAllMoments } from "@/lib/appwrite";
 import { MomentsDocument } from "@/types/type";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Text, View } from "react-native";
+import { Animated, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import "../global.css";
 
@@ -102,7 +104,12 @@ const Memories = () => {
           contentContainerStyle={{ paddingBottom: 140 }}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <View className="px-8 pt-16 pb-8">
+            <View className="px-8 mt-10 pb-8">
+              <View className="flex-row items-start mb-5">
+                <Pressable onPress={() => router.back()}>
+                  <ArrowLeft size={20} color="#bc8f97" />
+                </Pressable>
+              </View>
               <Text className="text-4xl font-light tracking-tight text-black">
                 Memory Lane
               </Text>
